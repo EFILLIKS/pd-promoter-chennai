@@ -13,6 +13,9 @@ export interface Project {
   status: "Available" | "Booked" | "Delivered";
   imageSrc: string;
   showOnHomepage: boolean;
+  brochure?: { fileUrl: string; publicId: string; fileType: string } | null;
+  locationData?: { address: string; place?: string; latitude?: string | number; longitude?: string | number } | null;
+  gallery?: { imageUrl: string; publicId: string }[] | null;
 }
 
 export interface Testimonial {
@@ -22,6 +25,7 @@ export interface Testimonial {
   designation: string;
   glowBig: string;
   glowSmall: string;
+  image?: { imageUrl: string; publicId: string } | null;
 }
 
 export interface Enquiry {
@@ -46,20 +50,27 @@ export interface CompanySettings {
   facebook?: string;
 }
 
+export interface HighlightedVideo {
+  videoUrl: string;
+  publicId: string;
+}
+
 interface DataContextType {
   projects: Project[];
   testimonials: Testimonial[];
   enquiries: Enquiry[];
   settings: CompanySettings;
-  addProject: (project: Omit<Project, "id">) => void;
-  editProject: (project: Project) => void;
-  deleteProject: (id: number) => void;
-  addTestimonial: (testimonial: Omit<Testimonial, "id">) => void;
-  editTestimonial: (testimonial: Testimonial) => void;
-  deleteTestimonial: (id: number) => void;
-  addEnquiry: (enquiry: Omit<Enquiry, "id" | "date">) => void;
-  deleteEnquiry: (id: number) => void;
-  updateSettings: (settings: CompanySettings) => void;
+  highlightedVideo: HighlightedVideo | null;
+  addProject: (project: Omit<Project, "id">) => Promise<void>;
+  editProject: (project: Project) => Promise<void>;
+  deleteProject: (id: number) => Promise<void>;
+  addTestimonial: (testimonial: Omit<Testimonial, "id">) => Promise<void>;
+  editTestimonial: (testimonial: Testimonial) => Promise<void>;
+  deleteTestimonial: (id: number) => Promise<void>;
+  addEnquiry: (enquiry: Omit<Enquiry, "id" | "date">) => Promise<void>;
+  deleteEnquiry: (id: number) => Promise<void>;
+  updateSettings: (settings: CompanySettings) => Promise<void>;
+  updateHighlightedVideo: (video: HighlightedVideo | null) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -73,6 +84,7 @@ const DEFAULT_PROJECTS: Project[] = [
     status: "Available",
     imageSrc: "/assets/About2.png",
     showOnHomepage: true,
+    locationData: { address: "Valasaravakkam, Chennai" },
   },
   {
     id: 2,
@@ -82,6 +94,7 @@ const DEFAULT_PROJECTS: Project[] = [
     status: "Delivered",
     imageSrc: "/assets/Property2.png",
     showOnHomepage: true,
+    locationData: { address: "Ambur, Tamil Nadu" },
   },
   {
     id: 3,
@@ -91,6 +104,7 @@ const DEFAULT_PROJECTS: Project[] = [
     status: "Available",
     imageSrc: "/assets/Property3.png",
     showOnHomepage: true,
+    locationData: { address: "Kolathur, Chennai" },
   },
   {
     id: 4,
@@ -100,6 +114,7 @@ const DEFAULT_PROJECTS: Project[] = [
     status: "Available",
     imageSrc: "/assets/Property4.png",
     showOnHomepage: true,
+    locationData: { address: "Maduravoyal, Chennai" },
   },
 ];
 
@@ -150,11 +165,83 @@ const DEFAULT_SETTINGS: CompanySettings = {
   facebook: "#",
 };
 
+// Helper to delete a Cloudinary asset
+const deleteCloudinaryAsset = async (publicId: string | undefined, resourceType: string = "image") => {
+  if (!publicId) return;
+  try {
+    const response = await fetch("/api/upload", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicId, resourceType }),
+    });
+    const result = await response.json();
+    console.log(`Cloudinary asset deletion result for ${publicId}:`, result);
+  } catch (err) {
+    console.error(`Error deleting Cloudinary asset ${publicId}:`, err);
+  }
+};
+
+// Extractor helper to parse Cloudinary Info from URL
+const extractCloudinaryInfo = (url: string | undefined) => {
+  if (!url || !url.includes("cloudinary.com")) return null;
+  try {
+    const parts = url.split("/upload/");
+    if (parts.length < 2) return null;
+    const afterUpload = parts[1];
+    const pathParts = afterUpload.split("/");
+    if (pathParts[0].match(/^v\d+$/)) {
+      pathParts.shift();
+    }
+    const publicIdWithExt = pathParts.join("/");
+    const lastDotIndex = publicIdWithExt.lastIndexOf(".");
+    const publicId = lastDotIndex !== -1 ? publicIdWithExt.substring(0, lastDotIndex) : publicIdWithExt;
+    
+    let resourceType = "image";
+    if (url.includes("/video/upload/")) {
+      resourceType = "video";
+    } else if (url.includes("/raw/upload/")) {
+      resourceType = "raw";
+    }
+    return { publicId, resourceType };
+  } catch (e) {
+    return null;
+  }
+};
+
+// Safe helper to parse location data
+const parseLocation = (location: any) => {
+  if (!location) return { address: "", place: "", latitude: "", longitude: "" };
+  if (typeof location === "object") {
+    return {
+      address: location.address || "",
+      place: location.place || "",
+      latitude: location.latitude || "",
+      longitude: location.longitude || ""
+    };
+  }
+  if (typeof location === "string") {
+    try {
+      const trimmed = location.trim();
+      if (trimmed.startsWith("{")) {
+        const parsed = JSON.parse(trimmed);
+        return {
+          address: parsed.address || "",
+          place: parsed.place || "",
+          latitude: parsed.latitude || "",
+          longitude: parsed.longitude || ""
+        };
+      }
+    } catch (e) {}
+  }
+  return { address: location, place: location, latitude: "", longitude: "" };
+};
+
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<Project[]>(DEFAULT_PROJECTS);
   const [testimonials, setTestimonials] = useState<Testimonial[]>(DEFAULT_TESTIMONIALS);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
+  const [highlightedVideo, setHighlightedVideo] = useState<HighlightedVideo | null>({ videoUrl: "/assets/PD.mp4", publicId: "" });
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -167,7 +254,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .order("id", { ascending: true });
         
         if (!projErr && dbProjects && dbProjects.length > 0) {
-          setProjects(dbProjects);
+          const normalized = dbProjects.map(p => {
+            const locObj = parseLocation(p.location);
+            return {
+              ...p,
+              location: locObj.place || locObj.address,
+              locationData: locObj
+            };
+          });
+          setProjects(normalized);
         } else {
           const storedProjects = localStorage.getItem("pd_projects");
           if (storedProjects) setProjects(JSON.parse(storedProjects));
@@ -213,6 +308,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setSettings({ ...DEFAULT_SETTINGS, ...parsedLocal });
         }
+
+        // Load Highlighted Home Video from Supabase
+        const { data: dbVideo } = await supabase
+          .from("highlighted_home")
+          .select("*")
+          .limit(1);
+        if (dbVideo && dbVideo.length > 0 && dbVideo[0].video) {
+          setHighlightedVideo(dbVideo[0].video);
+        } else {
+          const storedVideo = localStorage.getItem("pd_highlighted_video");
+          if (storedVideo) setHighlightedVideo(JSON.parse(storedVideo));
+        }
       } catch (e) {
         console.error("Error loading data from Supabase/localStorage:", e);
       }
@@ -243,30 +350,116 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("pd_settings", JSON.stringify(settings));
   }, [settings, isInitialized]);
 
+  useEffect(() => {
+    if (!isInitialized) return;
+    if (highlightedVideo) {
+      localStorage.setItem("pd_highlighted_video", JSON.stringify(highlightedVideo));
+    } else {
+      localStorage.removeItem("pd_highlighted_video");
+    }
+  }, [highlightedVideo, isInitialized]);
+
   // Project Mutations
   const addProject = async (project: Omit<Project, "id">) => {
     const nextId = projects.length > 0 ? Math.max(...projects.map((p) => p.id)) + 1 : 1;
-    const newProj = { ...project, id: nextId };
+    
+    const newProj: Project = {
+      ...project,
+      id: nextId,
+      location: project.locationData?.address || project.location || "",
+    };
+    
     setProjects((prev) => [...prev, newProj]);
 
+    const dbPayload = {
+      id: nextId,
+      title: project.title,
+      bhk: project.bhk,
+      status: project.status,
+      imageSrc: project.imageSrc,
+      showOnHomepage: project.showOnHomepage,
+      brochure: project.brochure || null,
+      gallery: project.gallery || null,
+      location: project.locationData || { address: project.location || "", place: project.location || "", latitude: "", longitude: "" }
+    };
+
     try {
-      await supabase.from("projects").insert([newProj]);
+      await supabase.from("projects").insert([dbPayload]);
     } catch (err) {
       console.error("Supabase insert project error:", err);
     }
   };
 
   const editProject = async (updated: Project) => {
-    setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    // Retrieve old project to see if any assets were replaced/removed
+    const oldProject = projects.find(p => p.id === updated.id);
+    if (oldProject) {
+      // 1. Check main image replacement
+      if (oldProject.imageSrc !== updated.imageSrc) {
+        const info = extractCloudinaryInfo(oldProject.imageSrc);
+        if (info) await deleteCloudinaryAsset(info.publicId, info.resourceType);
+      }
+      // 2. Check brochure replacement/removal
+      if (oldProject.brochure && (!updated.brochure || oldProject.brochure.publicId !== updated.brochure.publicId)) {
+        await deleteCloudinaryAsset(oldProject.brochure.publicId, oldProject.brochure.fileType || "raw");
+      }
+      // 3. Check gallery items removal
+      if (oldProject.gallery) {
+        const currentGalleryIds = new Set((updated.gallery || []).map(g => g.publicId));
+        for (const item of oldProject.gallery) {
+          if (!currentGalleryIds.has(item.publicId)) {
+            await deleteCloudinaryAsset(item.publicId, "image");
+          }
+        }
+      }
+    }
+
+    const nextProj: Project = {
+      ...updated,
+      location: updated.locationData?.address || updated.location || "",
+    };
+
+    setProjects((prev) => prev.map((p) => (p.id === updated.id ? nextProj : p)));
+
+    const dbPayload = {
+      id: updated.id,
+      title: updated.title,
+      bhk: updated.bhk,
+      status: updated.status,
+      imageSrc: updated.imageSrc,
+      showOnHomepage: updated.showOnHomepage,
+      brochure: updated.brochure || null,
+      gallery: updated.gallery || null,
+      location: updated.locationData || { address: updated.location || "", place: updated.location || "", latitude: "", longitude: "" }
+    };
 
     try {
-      await supabase.from("projects").update(updated).eq("id", updated.id);
+      await supabase.from("projects").update(dbPayload).eq("id", updated.id);
     } catch (err) {
       console.error("Supabase update project error:", err);
     }
   };
 
   const deleteProject = async (id: number) => {
+    const projectToDelete = projects.find(p => p.id === id);
+    if (projectToDelete) {
+      // 1. Delete main image
+      const info = extractCloudinaryInfo(projectToDelete.imageSrc);
+      if (info) await deleteCloudinaryAsset(info.publicId, info.resourceType);
+
+      // 2. Delete brochure
+      if (projectToDelete.brochure) {
+        await deleteCloudinaryAsset(projectToDelete.brochure.publicId, projectToDelete.brochure.fileType || "raw");
+      }
+
+      // 3. Delete gallery
+      if (projectToDelete.gallery) {
+        for (const item of projectToDelete.gallery) {
+          await deleteCloudinaryAsset(item.publicId, "image");
+        }
+      }
+    }
+
     setProjects((prev) => prev.filter((p) => p.id !== id));
 
     try {
@@ -290,6 +483,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const editTestimonial = async (updated: Testimonial) => {
+    const oldTestimonial = testimonials.find(t => t.id === updated.id);
+    if (oldTestimonial && oldTestimonial.image && (!updated.image || oldTestimonial.image.publicId !== updated.image.publicId)) {
+      await deleteCloudinaryAsset(oldTestimonial.image.publicId, "image");
+    }
+
     setTestimonials((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
 
     try {
@@ -300,6 +498,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteTestimonial = async (id: number) => {
+    const testimonialToDelete = testimonials.find(t => t.id === id);
+    if (testimonialToDelete && testimonialToDelete.image) {
+      await deleteCloudinaryAsset(testimonialToDelete.image.publicId, "image");
+    }
+
     setTestimonials((prev) => prev.filter((t) => t.id !== id));
 
     try {
@@ -346,8 +549,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSettings(updated);
 
     try {
-      // Since settings has no ID or is a single configuration row, we can upsert
-      // matching the companyName, or just update the table.
       const { data } = await supabase.from("settings").select("*").limit(1);
       if (data && data.length > 0) {
         const { error } = await supabase.from("settings").update(updated).eq("companyName", data[0].companyName);
@@ -383,6 +584,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Highlighted Video Mutations
+  const updateHighlightedVideo = async (video: HighlightedVideo | null) => {
+    const oldVideo = highlightedVideo;
+    if (oldVideo && oldVideo.publicId && (!video || oldVideo.publicId !== video.publicId)) {
+      await deleteCloudinaryAsset(oldVideo.publicId, "video");
+    }
+
+    setHighlightedVideo(video);
+
+    try {
+      // Upsert the single row in highlighted_home (id = 1)
+      const { data } = await supabase.from("highlighted_home").select("*").eq("id", 1);
+      if (data && data.length > 0) {
+        await supabase.from("highlighted_home").update({ video }).eq("id", 1);
+      } else {
+        await supabase.from("highlighted_home").insert([{ id: 1, video }]);
+      }
+    } catch (err) {
+      console.error("Supabase update highlighted video error:", err);
+    }
+  };
+
   return (
     <DataContext.Provider
       value={{
@@ -390,6 +613,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         testimonials,
         enquiries,
         settings,
+        highlightedVideo,
         addProject,
         editProject,
         deleteProject,
@@ -399,6 +623,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addEnquiry,
         deleteEnquiry,
         updateSettings,
+        updateHighlightedVideo,
       }}
     >
       {children}

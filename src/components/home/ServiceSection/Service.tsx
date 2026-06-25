@@ -7,16 +7,15 @@ import { motion } from "framer-motion";
 const SERVICES_DATA = [
   {
     id: "01",
-    eyebrow: "BUILD A HOME",
-    title: "Bring Your Dream\nHome to Life",
-    // Replace with your actual asset paths
-    image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2000&auto=format&fit=crop",
-  },
-  {
-    id: "02",
     eyebrow: "BUY A HOME",
     title: "Find the Perfect\nProperty for You",
     image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?q=80&w=2000&auto=format&fit=crop",
+  },
+  {
+    id: "02",
+    eyebrow: "BUILD A HOME",
+    title: "Bring Your Dream\nHome to Life",
+    image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2000&auto=format&fit=crop",
   },
   {
     id: "03",

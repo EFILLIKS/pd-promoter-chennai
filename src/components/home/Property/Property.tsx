@@ -83,6 +83,7 @@ export const PropertyListings = () => {
                 location={project.location}
                 status={project.status}
                 imageSrc={project.imageSrc}
+                brochure={project.brochure}
               />
             </FadeInBlock>
           ))}

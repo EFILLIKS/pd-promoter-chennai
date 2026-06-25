@@ -5,6 +5,7 @@ import { motion, useInView } from "framer-motion";
 import { AnimatedHeading } from "@/components/ui/HeadingText";
 import { FadeInBlock } from "@/components/ui/Paratext";
 import { MediaReveal } from "@/components/ui/MediaReveal";
+import { useData } from "@/context/DataContext";
 
 export const Showcase = () => {
   // 1. Scroll container to manage the expansion progress
@@ -55,7 +56,8 @@ export const Showcase = () => {
     };
   }, []);
   
-  const videoUrl = "/assets/PD.mp4";
+  const { highlightedVideo } = useData();
+  const videoUrl = highlightedVideo?.videoUrl || "/assets/PD.mp4";
 
   return (
     <section ref={containerRef} className="relative bg-[#FFFFFF] md:h-[220vh]">

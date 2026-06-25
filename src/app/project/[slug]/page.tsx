@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import { ProjectMap } from "@/components/ui/ProjectMap";
 
 // Fallback projects in case Supabase is empty
 const DEFAULT_PROJECTS = [
@@ -14,6 +15,7 @@ const DEFAULT_PROJECTS = [
     location: "Valasaravakkam",
     status: "Available",
     imageSrc: "/assets/About2.png",
+    locationData: { address: "Valasaravakkam, Chennai" },
   },
   {
     id: 2,
@@ -22,6 +24,7 @@ const DEFAULT_PROJECTS = [
     location: "Ambur",
     status: "Delivered",
     imageSrc: "/assets/Property2.png",
+    locationData: { address: "Ambur, Tamil Nadu" },
   },
   {
     id: 3,
@@ -30,6 +33,7 @@ const DEFAULT_PROJECTS = [
     location: "Kolathur",
     status: "Available",
     imageSrc: "/assets/Property3.png",
+    locationData: { address: "Kolathur, Chennai" },
   },
   {
     id: 4,
@@ -38,8 +42,39 @@ const DEFAULT_PROJECTS = [
     location: "Valasaravakkam",
     status: "Available",
     imageSrc: "/assets/Property4.png",
+    locationData: { address: "Maduravoyal, Chennai" },
   },
 ];
+
+export const dynamic = "force-dynamic";
+
+// Safe helper to parse location data
+const parseLocation = (location: any) => {
+  if (!location) return { address: "", place: "", latitude: "", longitude: "" };
+  if (typeof location === "object") {
+    return {
+      address: location.address || "",
+      place: location.place || "",
+      latitude: location.latitude || "",
+      longitude: location.longitude || ""
+    };
+  }
+  if (typeof location === "string") {
+    try {
+      const trimmed = location.trim();
+      if (trimmed.startsWith("{")) {
+        const parsed = JSON.parse(trimmed);
+        return {
+          address: parsed.address || "",
+          place: parsed.place || "",
+          latitude: parsed.latitude || "",
+          longitude: parsed.longitude || ""
+        };
+      }
+    } catch (e) {}
+  }
+  return { address: location, place: location, latitude: "", longitude: "" };
+};
 
 async function getProject(slug: string) {
   try {
@@ -55,7 +90,14 @@ async function getProject(slug: string) {
           (p) =>
             p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") === slug
         );
-        if (found) return found;
+        if (found) {
+          const locObj = parseLocation(found.location);
+          return {
+            ...found,
+            location: locObj.place || locObj.address,
+            locationData: locObj
+          };
+        }
       }
     }
   } catch (e) {
@@ -63,10 +105,17 @@ async function getProject(slug: string) {
   }
 
   // Fallback to local defaults if DB query fails or table is empty
-  return DEFAULT_PROJECTS.find(
+  const found = DEFAULT_PROJECTS.find(
     (p) =>
       p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") === slug
   );
+  if (found) {
+    return {
+      ...found,
+      locationData: found.locationData || { address: found.location, place: found.location, latitude: "", longitude: "" }
+    };
+  }
+  return null;
 }
 
 // Generate dynamic metadata
@@ -266,23 +315,81 @@ export default async function ProjectDetailPage({
             </p>
           </div>
           
-          <div className="lg:col-span-4 bg-[#F8FAFC] border border-[#E2E8F0] p-8 rounded-[24px] flex flex-col justify-between h-fit gap-8">
+          <div className="lg:col-span-4 bg-[#F8FAFC] border border-[#E2E8F0] p-8 rounded-[24px] flex flex-col justify-between h-fit gap-6 shadow-sm">
             <div className="flex flex-col gap-4">
               <h3 className="text-lg font-serif text-[#0B1117] uppercase tracking-wide">Interested in this property?</h3>
               <p className="text-sm text-[#64748B] leading-relaxed">
                 Connect with our residential development managers to check availability, pricing options, and to schedule private site visits.
               </p>
             </div>
-            <Link 
-              href="/contact"
-              className="w-full py-4 bg-[#0B1117] text-white hover:bg-[#1A1F2A] transition-colors rounded-xl font-semibold text-center text-sm"
-            >
-              Get in Touch
-            </Link>
+            
+            <div className="flex flex-col gap-3">
+              <Link 
+                href="/contact"
+                className="w-full py-4 bg-[#0B1117] text-white hover:bg-[#1A1F2A] transition-colors rounded-xl font-semibold text-center text-sm"
+              >
+                Get in Touch
+              </Link>
+              {project.brochure && project.brochure.fileUrl && (
+                <a 
+                  href={project.brochure.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-4 border border-[#0B1117] text-[#0B1117] hover:bg-[#0B1117] hover:text-white transition-all rounded-xl font-semibold text-center text-sm flex items-center justify-center gap-2"
+                >
+                  Download Brochure
+                </a>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* --- PROJECT LOCATION SECTION --- */}
+        {project.locationData && project.locationData.address && (
+          <div className="flex flex-col gap-6 mb-16 font-sans">
+            <h2 className="text-2xl font-serif text-[#0B1117] uppercase tracking-wide">Project Location</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+              {/* Map Column */}
+              <div className="lg:col-span-8 h-[350px] md:h-[450px]">
+                <ProjectMap 
+                  address={project.locationData.address}
+                  latitude={project.locationData.latitude}
+                  longitude={project.locationData.longitude}
+                />
+              </div>
+              
+              {/* Address details & directions column */}
+              <div className="lg:col-span-4 bg-[#F8FAFC] border border-[#E2E8F0] p-8 rounded-[24px] flex flex-col justify-between gap-6 shadow-sm">
+                <div className="flex flex-col gap-4">
+                  <span className="text-xs font-semibold text-[#64748B] tracking-wider uppercase">Site Address</span>
+                  <p className="text-base text-[#0B1117] leading-relaxed font-medium">
+                    {project.locationData.address}
+                  </p>
+                  {project.locationData.latitude && project.locationData.longitude && (
+                    <p className="text-xs text-[#64748B]">
+                      Coordinates: {project.locationData.latitude}, {project.locationData.longitude}
+                    </p>
+                  )}
+                </div>
+                
+                <a 
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                    project.locationData.address || `${project.locationData.latitude},${project.locationData.longitude}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-4 bg-[#0B1117] text-white hover:bg-[#1A1F2A] transition-colors rounded-xl font-semibold text-center text-sm flex items-center justify-center gap-2"
+                >
+                  Get Directions
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
   );
 }
+

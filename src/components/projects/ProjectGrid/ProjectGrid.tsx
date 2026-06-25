@@ -44,6 +44,7 @@ export const ProjectGrid: React.FC = () => {
             location={project.location}
             status={project.status}
             imageSrc={project.imageSrc}
+            brochure={project.brochure}
           />
         ))}
       </div>

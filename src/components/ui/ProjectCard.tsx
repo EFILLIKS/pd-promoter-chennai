@@ -18,6 +18,8 @@ export interface ProjectCardProps {
   status?: string;
   /** Optional Tailwind overrides for the wrapper */
   className?: string;
+  /** Project brochure data */
+  brochure?: { fileUrl: string; publicId: string; fileType: string } | null;
 }
 
 export const ProjectCard = ({
@@ -27,6 +29,7 @@ export const ProjectCard = ({
   imageSrc,
   status = "Available",
   className = "",
+  brochure,
 }: ProjectCardProps) => {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
 
@@ -75,43 +78,62 @@ export const ProjectCard = ({
 
 
       {/* --- 4. CONTENT BLOCK (BOTTOM LEFT) --- */}
-      <div className="absolute bottom-0 left-0 w-full p-[32px] z-20 flex flex-col gap-[16px]">
+      <div className="absolute bottom-0 left-0 w-full p-[32px] z-20 flex justify-between items-end gap-4">
         
-        {/* Title */}
-        <motion.h3
-          variants={{ hover: { y: -4 } }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="font-serif text-[32px] md:text-[36px] text-white uppercase tracking-wide leading-none drop-shadow-sm"
-        >
-          {title}
-        </motion.h3>
+        <div className="flex flex-col gap-[16px]">
+          {/* Title */}
+          <motion.h3
+            variants={{ hover: { y: -4 } }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="font-serif text-[32px] md:text-[36px] text-white uppercase tracking-wide leading-none drop-shadow-sm"
+          >
+            {title}
+          </motion.h3>
 
-        {/* Property Details Row */}
-        <motion.div
-          variants={{ hover: { y: -4 } }}
-          transition={{ duration: 0.4, ease: "easeOut", delay: 0.05 }}
-          className="flex items-center gap-[16px] text-white/95 font-sans text-[16px]"
-        >
-          
-          {/* BHK Info */}
-          <div className="flex items-center gap-[10px]">
-            <Icon icon="lucide:bed-double" width="22" height="22" strokeWidth="1.5" />
-            <span className="font-medium tracking-wide pt-[2px]">{bhk}</span>
-          </div>
+          {/* Property Details Row */}
+          <motion.div
+            variants={{ hover: { y: -4 } }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.05 }}
+            className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-[16px] text-white/95 font-sans text-[16px]"
+          >
+            
+            {/* BHK Info */}
+            <div className="flex items-center gap-[10px]">
+              <Icon icon="lucide:bed-double" width="22" height="22" strokeWidth="1.5" />
+              <span className="font-medium tracking-wide pt-[2px]">{bhk}</span>
+            </div>
 
-          {/* Strict Vertical Divider */}
-          <div className="w-[2px] h-[22px] bg-white/40" />
+            {/* Strict Vertical Divider */}
+            <div className="hidden md:block w-[2px] h-[22px] bg-white/40" />
 
-          {/* Location Info */}
-          <div className="flex items-center gap-[8px]">
-            <Icon icon="lucide:map-pin" width="22" height="22" strokeWidth="1.5" />
-            <span className="font-medium tracking-wide pt-[2px]">{location}</span>
-          </div>
+            {/* Location Info */}
+            <div className="flex items-center gap-[8px]">
+              <Icon icon="lucide:map-pin" width="22" height="22" strokeWidth="1.5" />
+              <span className="font-medium tracking-wide pt-[2px]">{location}</span>
+            </div>
 
-        </motion.div>
+          </motion.div>
+        </div>
+
+        {/* Brochure Download Button */}
+        {brochure && brochure.fileUrl && (
+          <motion.button
+            variants={{ hover: { scale: 1.05 } }}
+            whileTap={{ scale: 0.95 }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(brochure.fileUrl, "_blank");
+            }}
+            className="flex items-center justify-center w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/20 backdrop-blur-md transition-all shadow-lg shrink-0"
+            title="Download Brochure"
+          >
+            <Icon icon="lucide:download" width="20" height="20" />
+          </motion.button>
+        )}
       </div>
 
     </motion.div>
   </Link>
   );
-};
+};

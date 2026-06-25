@@ -12,6 +12,8 @@ export interface TestimonialCardProps {
   glowSmall?: string;
   /** Class name override for the card wrapper */
   className?: string;
+  /** Client image details */
+  image?: { imageUrl: string; publicId: string } | null;
 }
 
 export const TestimonialCard: React.FC<TestimonialCardProps> = ({
@@ -21,6 +23,7 @@ export const TestimonialCard: React.FC<TestimonialCardProps> = ({
   glowBig = "bg-[#7DD3FC]",
   glowSmall = "bg-[#38BDF8]",
   className = "",
+  image,
 }) => {
   return (
     <div
@@ -34,15 +37,28 @@ export const TestimonialCard: React.FC<TestimonialCardProps> = ({
         </p>
 
         {/* Author Block */}
-        <div className="flex flex-col gap-[4px] mt-[32px]">
-          <h4 className="font-serif text-[14px] md:text-[16px] uppercase tracking-widest text-[#1A1F2A]">
-            {name}
-          </h4>
-          {designation && (
-            <p className="font-sans text-[12px] text-[#64748B] tracking-wide">
-              {designation}
-            </p>
+        <div className="flex items-center gap-4 mt-[32px]">
+          {image && image.imageUrl ? (
+            <img 
+              src={image.imageUrl} 
+              alt={name} 
+              className="w-12 h-12 rounded-full object-cover border border-[#E2E8F0] shadow-sm shrink-0" 
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-[#0B1117] text-white flex items-center justify-center font-serif text-sm font-semibold tracking-wider shrink-0 shadow-sm uppercase">
+              {name.split(" ").filter(Boolean).map(n => n[0]).join("").substring(0, 2) || "U"}
+            </div>
           )}
+          <div className="flex flex-col gap-[4px]">
+            <h4 className="font-serif text-[14px] md:text-[16px] uppercase tracking-widest text-[#1A1F2A]">
+              {name}
+            </h4>
+            {designation && (
+              <p className="font-sans text-[12px] text-[#64748B] tracking-wide">
+                {designation}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

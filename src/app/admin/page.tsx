@@ -13,6 +13,7 @@ export default function AdminPage() {
     testimonials,
     enquiries,
     settings,
+    highlightedVideo,
     addProject,
     editProject,
     deleteProject,
@@ -21,6 +22,7 @@ export default function AdminPage() {
     deleteTestimonial,
     deleteEnquiry,
     updateSettings,
+    updateHighlightedVideo,
   } = useData();
 
   // Authentication state
@@ -48,27 +50,45 @@ export default function AdminPage() {
   const [projectFeaturedFilter, setProjectFeaturedFilter] = useState("All");
 
   const [testimonialSearch, setTestimonialSearch] = useState("");
-
   const [enquirySearch, setEnquirySearch] = useState("");
 
   // CRUD Forms State
   const [projectModal, setProjectModal] = useState<{ open: boolean; mode: "add" | "edit"; data?: Project }>({ open: false, mode: "add" });
-  const [projectForm, setProjectForm] = useState({
+  const [projectForm, setProjectForm] = useState<{
+    title: string;
+    bhk: string;
+    location: string;
+    status: "Available" | "Booked" | "Delivered";
+    imageSrc: string;
+    showOnHomepage: boolean;
+    brochure: { fileUrl: string; publicId: string; fileType: string } | null;
+    locationData: { address: string; place: string; latitude: string | number; longitude: string | number };
+  }>({
     title: "",
     bhk: "4 BHK",
     location: "",
-    status: "Available" as "Available" | "Booked" | "Delivered",
+    status: "Available",
     imageSrc: "/assets/placeholder-house.png",
     showOnHomepage: true,
+    brochure: null,
+    locationData: { address: "", place: "", latitude: "", longitude: "" },
   });
 
-  const [isUploading, setIsUploading] = useState(false);
+  // Uploading progress states
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  const [isUploading, setIsUploading] = useState<{ [key: string]: boolean }>({});
 
   const [testimonialModal, setTestimonialModal] = useState<{ open: boolean; mode: "add" | "edit"; data?: Testimonial }>({ open: false, mode: "add" });
-  const [testimonialForm, setTestimonialForm] = useState({
+  const [testimonialForm, setTestimonialForm] = useState<{
+    content: string;
+    name: string;
+    designation: string;
+    image: { imageUrl: string; publicId: string } | null;
+  }>({
     content: "",
     name: "",
     designation: "",
+    image: null,
   });
 
   const [settingsForm, setSettingsForm] = useState({
@@ -81,7 +101,7 @@ export default function AdminPage() {
     facebook: settings.facebook || "",
   });
 
-  // Sync settings when loaded from LocalStorage
+  // Sync settings when loaded
   useEffect(() => {
     setSettingsForm({
       companyName: settings.companyName,
@@ -122,6 +142,56 @@ export default function AdminPage() {
     }, 3000);
   };
 
+  // Cloudinary File Upload via XHR (to track progress)
+  const uploadFile = (file: File, key: string): Promise<{ url: string; publicId: string; fileType: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result;
+        if (typeof base64 !== "string") {
+          reject(new Error("File conversion failed"));
+          return;
+        }
+
+        setIsUploading(prev => ({ ...prev, [key]: true }));
+        setUploadProgress(prev => ({ ...prev, [key]: 0 }));
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/upload", true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(prev => ({ ...prev, [key]: percent }));
+          }
+        };
+
+        xhr.onload = () => {
+          setIsUploading(prev => ({ ...prev, [key]: false }));
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const res = JSON.parse(xhr.responseText);
+              resolve(res);
+            } catch (err) {
+              reject(err);
+            }
+          } else {
+            reject(new Error("Upload failed"));
+          }
+        };
+
+        xhr.onerror = () => {
+          setIsUploading(prev => ({ ...prev, [key]: false }));
+          reject(new Error("Upload error"));
+        };
+
+        xhr.send(JSON.stringify({ file: base64 }));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Stats
   const totalProjectsCount = projects.length;
   const availableCount = projects.filter((p) => p.status === "Available").length;
@@ -158,6 +228,8 @@ export default function AdminPage() {
       status: "Available",
       imageSrc: "/assets/placeholder-house.png",
       showOnHomepage: true,
+      brochure: null,
+      locationData: { address: "", place: "", latitude: "", longitude: "" },
     });
     setProjectModal({ open: true, mode: "add" });
   };
@@ -170,22 +242,34 @@ export default function AdminPage() {
       status: p.status,
       imageSrc: p.imageSrc,
       showOnHomepage: p.showOnHomepage,
+      brochure: p.brochure || null,
+      locationData: {
+        address: p.locationData?.address || p.location || "",
+        place: p.locationData?.place || p.location || "",
+        latitude: p.locationData?.latitude || "",
+        longitude: p.locationData?.longitude || "",
+      },
     });
     setProjectModal({ open: true, mode: "edit", data: p });
   };
 
   const handleSaveProject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectForm.title.trim() || !projectForm.location.trim()) {
-      triggerToast("Please fill out all required fields.", "error");
+    if (!projectForm.title.trim() || !projectForm.locationData.place.trim() || !projectForm.locationData.address.trim()) {
+      triggerToast("Please fill out Name, Place, and Address.", "error");
       return;
     }
 
+    const projectPayload = {
+      ...projectForm,
+      location: projectForm.locationData.place,
+    };
+
     if (projectModal.mode === "add") {
-      addProject(projectForm);
+      addProject(projectPayload);
       triggerToast("Project added successfully!");
     } else if (projectModal.mode === "edit" && projectModal.data) {
-      editProject({ ...projectForm, id: projectModal.data.id });
+      editProject({ ...projectPayload, id: projectModal.data.id });
       triggerToast("Project updated successfully!");
     }
     setProjectModal({ open: false, mode: "add" });
@@ -193,12 +277,12 @@ export default function AdminPage() {
 
   // Handle Testimonial Form Actions
   const handleOpenAddTestimonial = () => {
-    setTestimonialForm({ content: "", name: "", designation: "" });
+    setTestimonialForm({ content: "", name: "", designation: "", image: null });
     setTestimonialModal({ open: true, mode: "add" });
   };
 
   const handleOpenEditTestimonial = (t: Testimonial) => {
-    setTestimonialForm({ content: t.content, name: t.name, designation: t.designation });
+    setTestimonialForm({ content: t.content, name: t.name, designation: t.designation, image: t.image || null });
     setTestimonialModal({ open: true, mode: "edit", data: t });
   };
 
@@ -238,6 +322,32 @@ export default function AdminPage() {
       ...settingsForm,
     });
     triggerToast("Settings saved successfully!");
+  };
+
+  // Handle Highlighted Video Upload/Replace/Delete
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadFile(file, "highlighted_video");
+      await updateHighlightedVideo({
+        videoUrl: res.url,
+        publicId: res.publicId,
+      });
+      triggerToast("Video uploaded and updated successfully!");
+    } catch (err) {
+      triggerToast("Video upload failed.", "error");
+    }
+  };
+
+  const handleRemoveVideo = async () => {
+    try {
+      await updateHighlightedVideo(null);
+      triggerToast("Highlighted video removed successfully!");
+    } catch (err) {
+      triggerToast("Failed to remove video.", "error");
+    }
   };
 
   // Handle Login
@@ -312,7 +422,6 @@ export default function AdminPage() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0B1117] flex items-center justify-center p-6 relative overflow-hidden font-sans antialiased">
-        {/* Glow spots */}
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#38BDF8]/10 blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-violet-900/20 blur-[120px] pointer-events-none" />
 
@@ -416,7 +525,6 @@ export default function AdminPage() {
           sidebarOpen ? "w-[260px]" : "w-[80px]"
         } shrink-0`}
       >
-        {/* Brand Header */}
         <div className="h-[88px] flex items-center px-6 border-b border-[#1A232E] justify-between overflow-hidden">
           <div className="flex items-center gap-[12px] text-white">
             <img src="/assets/logowhite.png" alt="PD Logo" className="w-[28px] h-[28px] object-contain shrink-0" />
@@ -432,7 +540,6 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {/* Navigation links */}
         <nav className="flex-grow py-8 px-4 flex flex-col gap-1.5">
           {menuItems.map((item) => {
             const active = activeTab === item.id;
@@ -455,7 +562,6 @@ export default function AdminPage() {
           })}
         </nav>
         
-        {/* Logout Button */}
         <div className="p-4 border-t border-[#1A232E] shrink-0">
           <button 
             onClick={handleLogout}
@@ -473,7 +579,6 @@ export default function AdminPage() {
       <AnimatePresence>
         {mobileSidebarOpen && (
           <>
-            {/* Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
@@ -481,7 +586,6 @@ export default function AdminPage() {
               onClick={() => setMobileSidebarOpen(false)}
               className="fixed inset-0 bg-black z-[120] lg:hidden"
             />
-            {/* Drawer */}
             <motion.div 
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
@@ -518,7 +622,6 @@ export default function AdminPage() {
                 ))}
               </nav>
               
-              {/* Logout Button */}
               <div className="p-4 border-t border-[#1A232E] shrink-0">
                 <button 
                   onClick={() => {
@@ -551,7 +654,6 @@ export default function AdminPage() {
               {menuItems.find(m => m.id === activeTab)?.label}
             </h1>
           </div>
-          {/* User Info / Status */}
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
             <span className="text-[12px] font-sans font-medium text-[#64748B] tracking-wide uppercase">Connected</span>
@@ -586,7 +688,7 @@ export default function AdminPage() {
               {/* Dashboard Layout Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                {/* Recent Projects (Col 7) */}
+                {/* Recent Projects */}
                 <div className="lg:col-span-7 bg-white rounded-[24px] border border-[#E2E8F0] p-6 flex flex-col gap-6">
                   <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
                     <h3 className="font-serif text-[18px] uppercase tracking-wider">Recent Projects</h3>
@@ -607,10 +709,10 @@ export default function AdminPage() {
                         </thead>
                         <tbody>
                           {projects.slice(0, 5).map((project) => (
-                            <tr key={project.id} className="border-b border-[#F8FAFC] last:border-0 hover:bg-[#F8FAFC] transition-colors">
+                             <tr key={project.id} className="border-b border-[#F8FAFC] last:border-0 hover:bg-[#F8FAFC] transition-colors">
                               <td className="py-3.5 font-medium">{project.title}</td>
                               <td className="py-3.5 text-[#64748B]">{project.bhk}</td>
-                              <td className="py-3.5 text-[#64748B]">{project.location}</td>
+                              <td className="py-3.5 text-[#64748B]">{project.locationData?.address || project.location}</td>
                               <td className="py-3.5">
                                 <span className={`inline-flex px-2.5 py-1 rounded-full text-[12px] font-medium ${
                                   project.status === "Available" 
@@ -630,7 +732,7 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* Recent Enquiries (Col 5) */}
+                {/* Recent Enquiries */}
                 <div className="lg:col-span-5 bg-white rounded-[24px] border border-[#E2E8F0] p-6 flex flex-col gap-6">
                   <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
                     <h3 className="font-serif text-[18px] uppercase tracking-wider">Recent Enquiries</h3>
@@ -670,7 +772,6 @@ export default function AdminPage() {
                 
                 {/* Search / Filters */}
                 <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-                  {/* Search Input */}
                   <div className="relative w-full md:w-[260px]">
                     <Icon icon="lucide:search" className="absolute left-3.5 top-3.5 text-[#8E9CAE]" width="18" height="18" />
                     <input 
@@ -681,7 +782,6 @@ export default function AdminPage() {
                       className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] pl-11 pr-4 text-sm text-[#1A1F2A] placeholder-[#8E9CAE] focus:outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
                     />
                   </div>
-                  {/* Status Filter */}
                   <div className="flex gap-2 w-full md:w-auto">
                     <select 
                       value={projectStatusFilter}
@@ -694,7 +794,6 @@ export default function AdminPage() {
                       <option value="Delivered">Delivered</option>
                     </select>
 
-                    {/* Featured Filter */}
                     <select 
                       value={projectFeaturedFilter}
                       onChange={(e) => setProjectFeaturedFilter(e.target.value)}
@@ -707,7 +806,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Add button */}
                 <button 
                   onClick={handleOpenAddProject}
                   className="w-full md:w-auto h-[46px] px-6 bg-[#0B1117] text-white hover:bg-[#1A1F2A] transition-colors rounded-xl flex items-center justify-center gap-2 text-sm font-medium cursor-pointer shadow-sm shrink-0"
@@ -732,7 +830,7 @@ export default function AdminPage() {
                           <th className="py-4 px-6 w-[100px]">Image</th>
                           <th className="py-4 px-6">Project Name</th>
                           <th className="py-4 px-6">BHK</th>
-                          <th className="py-4 px-6">Location</th>
+                          <th className="py-4 px-6">Location Address</th>
                           <th className="py-4 px-6">Status</th>
                           <th className="py-4 px-6">Homepage Showcase</th>
                           <th className="py-4 px-6 text-right">Actions</th>
@@ -748,7 +846,7 @@ export default function AdminPage() {
                             </td>
                             <td className="py-4 px-6 font-semibold text-[#0B1117] text-base">{project.title}</td>
                             <td className="py-4 px-6 text-[#64748B]">{project.bhk}</td>
-                            <td className="py-4 px-6 text-[#64748B]">{project.location}</td>
+                            <td className="py-4 px-6 text-[#64748B]">{project.locationData?.address || project.location}</td>
                             <td className="py-4 px-6">
                               <span className={`inline-flex px-3 py-1 rounded-full text-[12px] font-semibold ${
                                 project.status === "Available" 
@@ -798,13 +896,12 @@ export default function AdminPage() {
           {activeTab === "testimonials" && (
             <div className="flex flex-col gap-8">
               
-              {/* Toolbar */}
               <div className="bg-white rounded-[20px] border border-[#E2E8F0] p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
                 <div className="relative w-full md:w-[260px]">
                   <Icon icon="lucide:search" className="absolute left-3.5 top-3.5 text-[#8E9CAE]" width="18" height="18" />
                   <input 
                     type="text" 
-                    placeholder="Search by client name..." 
+                    placeholder="Search testimonials..." 
                     value={testimonialSearch}
                     onChange={(e) => setTestimonialSearch(e.target.value)}
                     className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] pl-11 pr-4 text-sm text-[#1A1F2A] placeholder-[#8E9CAE] focus:outline-none focus:border-[#0B1117] transition-all"
@@ -812,260 +909,263 @@ export default function AdminPage() {
                 </div>
                 <button 
                   onClick={handleOpenAddTestimonial}
-                  className="w-full md:w-auto h-[46px] px-6 bg-[#0B1117] text-white hover:bg-[#1A1F2A] rounded-xl flex items-center justify-center gap-2 text-sm font-medium cursor-pointer shadow-sm shrink-0"
+                  className="w-full md:w-auto h-[46px] px-6 bg-[#0B1117] text-white hover:bg-[#1A1F2A] transition-colors rounded-xl flex items-center justify-center gap-2 text-sm font-medium cursor-pointer shadow-sm shrink-0"
                 >
                   <Icon icon="lucide:plus" width="18" height="18" />
                   <span>Add Testimonial</span>
                 </button>
               </div>
 
-              {/* Testimonials Card Grid */}
-              {filteredTestimonials.length === 0 ? (
-                <div className="bg-white rounded-[24px] border border-[#E2E8F0] py-24 text-center text-[#64748B] flex flex-col items-center justify-center gap-3">
-                  <Icon icon="lucide:message-square" width="48" height="48" className="text-[#8E9CAE]" />
-                  <span>No testimonials found. Add client reviews.</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTestimonials.map((t) => (
+                  <div key={t.id} className="bg-white border border-[#E2E8F0] rounded-3xl p-6 flex flex-col gap-4 justify-between shadow-sm relative group overflow-hidden">
+                    <p className="text-sm text-[#64748B] italic leading-relaxed line-clamp-4">"{t.content}"</p>
+                    <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#F1F5F9]">
+                      {t.image?.imageUrl ? (
+                        <img src={t.image.imageUrl} alt={t.name} className="w-10 h-10 rounded-full object-cover border border-[#E2E8F0]" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#0B1117] text-white flex items-center justify-center text-xs font-serif uppercase">
+                          {t.name.split(" ").filter(Boolean).map(n => n[0]).join("").substring(0, 2) || "U"}
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-serif text-sm font-bold text-[#0B1117] uppercase tracking-wider">{t.name}</h4>
+                        {t.designation && <p className="text-[11px] text-[#64748B]">{t.designation}</p>}
+                      </div>
+                    </div>
+                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => handleOpenEditTestimonial(t)}
+                        className="p-1.5 bg-white border border-[#E2E8F0] rounded-lg text-[#64748B] hover:text-[#0B1117] transition-colors shadow-sm"
+                      >
+                        <Icon icon="lucide:edit-2" width="14" height="14" />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirm({ open: true, type: "testimonial", id: t.id })}
+                        className="p-1.5 bg-white border border-red-100 rounded-lg text-red-600 hover:bg-red-50 transition-colors shadow-sm"
+                      >
+                        <Icon icon="lucide:trash-2" width="14" height="14" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "enquiries" && (
+            <div className="bg-white rounded-[24px] border border-[#E2E8F0] overflow-hidden">
+              <div className="p-4 border-b border-[#E2E8F0]">
+                <div className="relative w-[280px]">
+                  <Icon icon="lucide:search" className="absolute left-3.5 top-3.5 text-[#8E9CAE]" width="18" height="18" />
+                  <input 
+                    type="text" 
+                    placeholder="Search client name/email..." 
+                    value={enquirySearch}
+                    onChange={(e) => setEnquirySearch(e.target.value)}
+                    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] pl-11 pr-4 text-sm text-[#1A1F2A] focus:outline-none focus:border-[#0B1117]"
+                  />
                 </div>
+              </div>
+              
+              {filteredEnquiries.length === 0 ? (
+                <div className="py-24 text-center text-[#64748B]">No enquiries found.</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
-                  {filteredTestimonials.map((t) => (
-                    <div key={t.id} className="relative group rounded-[24px] overflow-hidden bg-white border border-[#E2E8F0] p-8 flex flex-col justify-between h-[450px]">
-                      
-                      {/* Card contents */}
-                      <div className="flex flex-col h-full justify-between relative z-10">
-                        <p className="text-[#4A5568] font-sans text-[16px] md:text-[18px] leading-[1.6] tracking-tight">{t.content}</p>
-                        
-                        <div className="flex items-end justify-between border-t border-[#F1F5F9] pt-6 mt-6">
-                          <div className="flex flex-col gap-1">
-                            <h4 className="font-serif text-[14px] uppercase tracking-wider text-[#1A1F2A]">{t.name}</h4>
-                            {t.designation && <p className="font-sans text-[11px] text-[#64748B]">{t.designation}</p>}
-                          </div>
-                          <div className="flex gap-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-[14px]">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] font-semibold">
+                        <th className="py-4 px-6">Client Name</th>
+                        <th className="py-4 px-6">Email</th>
+                        <th className="py-4 px-6">Subject</th>
+                        <th className="py-4 px-6">Date</th>
+                        <th className="py-4 px-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredEnquiries.map((enq) => (
+                        <tr 
+                          key={enq.id} 
+                          onClick={() => setSelectedEnquiry(enq)}
+                          className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#F8FAFC] transition-all cursor-pointer"
+                        >
+                          <td className="py-4 px-6 font-medium text-[#0B1117]">{enq.name}</td>
+                          <td className="py-4 px-6 text-[#64748B]">{enq.email}</td>
+                          <td className="py-4 px-6 text-[#64748B] font-medium">{enq.subject}</td>
+                          <td className="py-4 px-6 text-[#8E9CAE]">{enq.date}</td>
+                          <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                             <button 
-                              onClick={() => handleOpenEditTestimonial(t)}
-                              className="p-2 border border-[#E2E8F0] rounded-lg text-[#64748B] hover:text-[#0B1117] hover:bg-[#F8FAFC] transition-colors"
-                            >
-                              <Icon icon="lucide:edit-2" width="14" height="14" />
-                            </button>
-                            <button 
-                              onClick={() => setDeleteConfirm({ open: true, type: "testimonial", id: t.id })}
+                              onClick={() => setDeleteConfirm({ open: true, type: "enquiry", id: enq.id })}
                               className="p-2 border border-red-100 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                             >
-                              <Icon icon="lucide:trash-2" width="14" height="14" />
+                              <Icon icon="lucide:trash-2" width="16" height="16" />
                             </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Accent glow spots */}
-                      <div className={`absolute bottom-[-20%] right-[-10%] w-[180px] h-[180px] rounded-full blur-[50px] opacity-25 z-0 ${t.glowBig || "bg-[#7DD3FC]"}`} />
-                      <div className={`absolute bottom-[-5%] left-[5%] w-[120px] h-[120px] rounded-full blur-[40px] opacity-30 z-0 ${t.glowSmall || "bg-[#38BDF8]"}`} />
-                    </div>
-                  ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
           )}
 
-          {activeTab === "enquiries" && (
-            <div className="flex flex-col gap-8">
-              
-              {/* Toolbar */}
-              <div className="bg-white rounded-[20px] border border-[#E2E8F0] p-4">
-                <div className="relative w-full md:w-[260px]">
-                  <Icon icon="lucide:search" className="absolute left-3.5 top-3.5 text-[#8E9CAE]" width="18" height="18" />
-                  <input 
-                    type="text" 
-                    placeholder="Search by name/email..." 
-                    value={enquirySearch}
-                    onChange={(e) => setEnquirySearch(e.target.value)}
-                    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] pl-11 pr-4 text-sm text-[#1A1F2A] placeholder-[#8E9CAE] focus:outline-none focus:border-[#0B1117] transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Enquiries Grid */}
-              <div className="bg-white rounded-[24px] border border-[#E2E8F0] overflow-hidden">
-                {filteredEnquiries.length === 0 ? (
-                  <div className="py-24 text-center text-[#64748B] flex flex-col items-center justify-center gap-3">
-                    <Icon icon="lucide:mail-open" width="48" height="48" className="text-[#8E9CAE]" />
-                    <span>No enquiries received.</span>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-[14px]">
-                      <thead>
-                        <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] font-semibold">
-                          <th className="py-4 px-6">Client Details</th>
-                          <th className="py-4 px-6">Subject</th>
-                          <th className="py-4 px-6">Message Preview</th>
-                          <th className="py-4 px-6">Received Date</th>
-                          <th className="py-4 px-6 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredEnquiries.map((enq) => (
-                          <tr key={enq.id} className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#F8FAFC] transition-all">
-                            <td className="py-4 px-6">
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-[#0B1117]">{enq.name}</span>
-                                <span className="text-[12px] text-[#64748B]">{enq.email}</span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-6 text-[#0B1117] font-medium">{enq.subject}</td>
-                            <td className="py-4 px-6 text-[#64748B] max-w-[280px] truncate">{enq.message}</td>
-                            <td className="py-4 px-6 text-[#64748B]">{enq.date}</td>
-                            <td className="py-4 px-6 text-right">
-                              <div className="flex justify-end gap-2">
-                                <button 
-                                  onClick={() => setSelectedEnquiry(enq)}
-                                  className="p-2 border border-[#E2E8F0] rounded-lg text-[#64748B] hover:text-[#0B1117] hover:bg-[#F8FAFC] transition-colors"
-                                >
-                                  <Icon icon="lucide:eye" width="16" height="16" />
-                                </button>
-                                <button 
-                                  onClick={() => setDeleteConfirm({ open: true, type: "enquiry", id: enq.id })}
-                                  className="p-2 border border-red-100 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                  <Icon icon="lucide:trash-2" width="16" height="16" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {activeTab === "settings" && (
-            <div className="w-full bg-white rounded-[24px] border border-[#E2E8F0] p-6 md:p-8">
-              <form onSubmit={handleSaveSettings} className="flex flex-col gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left Column - General Info Form */}
+              <form onSubmit={handleSaveSettings} className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-[24px] p-6 md:p-8 flex flex-col gap-6">
+                <h3 className="font-serif text-[18px] uppercase tracking-wide border-b border-[#F1F5F9] pb-4">Company Details</h3>
                 
-                {/* General Information Section */}
-                <div className="flex flex-col gap-6">
-                  <h4 className="font-serif text-[16px] uppercase tracking-wider text-[#0B1117] border-b border-[#F1F5F9] pb-2">General Information</h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Company Name */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[14px] font-medium text-[#1A1F2A]">Company Name</label>
-                      <input 
-                        type="text" 
-                        value={settingsForm.companyName}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, companyName: e.target.value })}
-                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[52px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
-                      />
-                    </div>
-
-                    {/* Phone Number */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[14px] font-medium text-[#1A1F2A]">Phone Number</label>
-                      <input 
-                        type="text" 
-                        value={settingsForm.phone}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[52px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
-                      />
-                    </div>
-
-                    {/* Email Address */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[14px] font-medium text-[#1A1F2A]">Email Address</label>
-                      <input 
-                        type="email" 
-                        value={settingsForm.email}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[52px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Company Name</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.companyName}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, companyName: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                      required
+                    />
                   </div>
-
-                  {/* Office Address */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[14px] font-medium text-[#1A1F2A]">Office Address</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.phone}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Email Address</label>
+                    <input 
+                      type="email" 
+                      value={settingsForm.email}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Address</label>
                     <textarea 
                       rows={3}
                       value={settingsForm.address}
                       onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
-                      className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all resize-none"
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] resize-none"
+                      required
                     />
                   </div>
                 </div>
 
-                {/* Social Media Links Section */}
-                <div className="flex flex-col gap-6">
-                  <h4 className="font-serif text-[16px] uppercase tracking-wider text-[#0B1117] border-b border-[#F1F5F9] pb-2">Social Media Links</h4>
+                <h3 className="font-serif text-[18px] uppercase tracking-wide border-b border-[#F1F5F9] pb-4 mt-4">Social Accounts</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Instagram</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.instagram}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Twitter</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.twitter}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, twitter: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">Facebook</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.facebook}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" className="h-[48px] bg-[#0B1117] hover:bg-[#1A1F2A] text-white rounded-xl text-sm font-semibold transition-colors mt-4">
+                  Save Changes
+                </button>
+              </form>
+
+              {/* Right Column - Highlighted Video & Admin Credentials */}
+              <div className="lg:col-span-5 flex flex-col gap-8">
+                
+                {/* Highlighted Video Upload Section */}
+                <div className="bg-white border border-[#E2E8F0] rounded-[24px] p-6 flex flex-col gap-5">
+                  <h3 className="font-serif text-[18px] uppercase tracking-wide border-b border-[#F1F5F9] pb-4">Highlighted Video</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Instagram Link */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[14px] font-medium text-[#1A1F2A]">Instagram Redirect Link</label>
-                      <input 
-                        type="text" 
-                        value={settingsForm.instagram}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
-                        placeholder="https://instagram.com/username"
-                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[52px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
-                      />
+                  {highlightedVideo?.videoUrl ? (
+                    <div className="flex flex-col gap-4">
+                      <div className="aspect-video rounded-xl overflow-hidden bg-neutral-900 border border-[#E2E8F0] relative group">
+                        <video 
+                          src={highlightedVideo.videoUrl} 
+                          controls 
+                          muted 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <label className="flex-grow h-[42px] border border-[#CBD5E1] hover:bg-[#F8FAFC] rounded-lg text-xs font-semibold text-[#64748B] flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                          <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={isUploading["highlighted_video"]} />
+                          <Icon icon="lucide:refresh-cw" width="14" height="14" />
+                          <span>Replace Video</span>
+                        </label>
+                        <button 
+                          onClick={handleRemoveVideo}
+                          className="px-4 h-[42px] bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Icon icon="lucide:trash-2" width="14" height="14" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Twitter Link */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[14px] font-medium text-[#1A1F2A]">Twitter / X Redirect Link</label>
-                      <input 
-                        type="text" 
-                        value={settingsForm.twitter}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, twitter: e.target.value })}
-                        placeholder="https://x.com/username"
-                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[52px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
-                      />
-                    </div>
-
-                    {/* Facebook Link */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[14px] font-medium text-[#1A1F2A]">Facebook Redirect Link</label>
-                      <input 
-                        type="text" 
-                        value={settingsForm.facebook}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
-                        placeholder="https://facebook.com/username"
-                        className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[52px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117] focus:ring-1 focus:ring-[#0B1117]/10 transition-all"
-                      />
-                    </div>
-                  </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-[180px] border-2 border-dashed border-[#CBD5E1] hover:border-[#0B1117] rounded-xl cursor-pointer bg-[#F8FAFC] transition-colors relative overflow-hidden group">
+                      <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={isUploading["highlighted_video"]} />
+                      <div className="flex flex-col items-center gap-1 text-[#64748B] group-hover:text-[#0B1117] transition-colors">
+                        {isUploading["highlighted_video"] ? (
+                          <>
+                            <Icon icon="line-md:loading-twotone-loop" width="28" height="28" className="text-[#0B1117]" />
+                            <span className="text-xs font-medium text-[#0B1117]">Uploading Video ({uploadProgress["highlighted_video"] || 0}%)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Icon icon="lucide:video" width="28" height="28" />
+                            <span className="text-xs font-semibold">Upload Highlighted Video</span>
+                            <span className="text-[10px] text-[#8E9CAE]">MP4, WebM up to 50MB</span>
+                          </>
+                        )}
+                      </div>
+                    </label>
+                  )}
                 </div>
 
-                {/* Security Section */}
-                <div className="pt-6 border-t border-[#F1F5F9] flex flex-col gap-4">
-                  <div className="flex flex-col gap-1">
-                    <h4 className="font-serif text-[15px] uppercase tracking-wider text-[#0B1117]">Security & Access</h4>
-                    <p className="text-[12px] text-[#64748B]">Manage the username and password required to access this administration panel.</p>
-                  </div>
-                  <div>
-                    <button 
-                      type="button"
-                      onClick={() => setCredentialsModalOpen(true)}
-                      className="px-5 h-[46px] border border-[#CBD5E1] hover:border-[#0B1117] rounded-xl text-sm font-semibold text-[#0b1117] hover:bg-[#F8FAFC] transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <Icon icon="lucide:key-round" width="16" height="16" />
-                      <span>Edit Credentials</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Save button */}
-                <div className="pt-4 border-t border-[#F1F5F9]">
+                {/* Credentials Section */}
+                <div className="bg-white border border-[#E2E8F0] rounded-[24px] p-6 flex flex-col gap-4">
+                  <h3 className="font-serif text-[18px] uppercase tracking-wide border-b border-[#F1F5F9] pb-4">Admin Credentials</h3>
+                  <p className="text-sm text-[#64748B] leading-relaxed">Change username and password to secure the portal.</p>
                   <button 
-                    type="submit"
-                    className="px-6 h-[50px] bg-[#0B1117] text-white hover:bg-[#1A1F2A] rounded-xl text-sm font-medium transition-colors cursor-pointer"
+                    onClick={() => {
+                      setCredForm({ username: settings.adminUsername, password: settings.adminPassword });
+                      setCredentialsModalOpen(true);
+                    }}
+                    className="h-[46px] border border-[#CBD5E1] hover:bg-[#F8FAFC] rounded-xl text-sm font-semibold text-[#0B1117] transition-colors"
                   >
-                    Save Settings
+                    Edit Credentials
                   </button>
                 </div>
-              </form>
+
+              </div>
             </div>
           )}
         </main>
@@ -1082,7 +1182,7 @@ export default function AdminPage() {
             <form onSubmit={handleSaveProject} className="flex-grow p-6 md:p-8 overflow-y-auto flex flex-col gap-6 md:max-w-xl">
               <div className="flex justify-between items-start border-b border-[#F1F5F9] pb-4">
                 <h3 className="font-serif text-[20px] uppercase tracking-wide">
-                  {projectModal.mode === "add" ? "Add Project" : "Edit Project"}
+                  {projectModal.mode === "add" ? "Add New Project" : "Edit Project"}
                 </h3>
                 <button type="button" onClick={() => setProjectModal({ open: false, mode: "add" })} className="text-[#64748B] hover:text-[#0B1117]">
                   <Icon icon="lucide:x" width="20" height="20" />
@@ -1117,19 +1217,6 @@ export default function AdminPage() {
                 </select>
               </div>
 
-              {/* Location */}
-              <div className="flex flex-col gap-2">
-                <label className="text-[14px] font-medium text-[#1A1F2A]">Location*</label>
-                <input 
-                  type="text" 
-                  value={projectForm.location}
-                  onChange={(e) => setProjectForm({ ...projectForm, location: e.target.value })}
-                  placeholder="e.g. Valasaravakkam"
-                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[48px] px-4 text-sm text-[#1A1F2A] focus:outline-none focus:border-[#0B1117]"
-                  required
-                />
-              </div>
-
               {/* Status */}
               <div className="flex flex-col gap-2">
                 <label className="text-[14px] font-medium text-[#1A1F2A]">Purchase Status*</label>
@@ -1144,7 +1231,58 @@ export default function AdminPage() {
                 </select>
               </div>
 
-              {/* Image Src */}
+              {/* Location Fields */}
+              <div className="flex flex-col gap-3 bg-[#F8FAFC] p-4 rounded-2xl border border-[#E2E8F0]">
+                <span className="text-[13px] font-bold uppercase text-[#64748B] tracking-wider">Project Location & Mapping</span>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-[#1A1F2A]">Place* (Shown on project card, e.g. Valasaravakkam)</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.locationData.place}
+                    onChange={(e) => setProjectForm({ ...projectForm, locationData: { ...projectForm.locationData, place: e.target.value } })}
+                    placeholder="e.g. Valasaravakkam"
+                    className="bg-white border border-[#E2E8F0] rounded-xl h-[42px] px-3 text-sm text-[#1A1F2A] outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-[#1A1F2A]">Site address* (Used for map search)</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.locationData.address}
+                    onChange={(e) => setProjectForm({ ...projectForm, locationData: { ...projectForm.locationData, address: e.target.value } })}
+                    placeholder="e.g. Valasaravakkam, Chennai"
+                    className="bg-white border border-[#E2E8F0] rounded-xl h-[42px] px-3 text-sm text-[#1A1F2A] outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-semibold text-[#1A1F2A]">Latitude (Optional)</label>
+                    <input 
+                      type="text" 
+                      value={projectForm.locationData.latitude}
+                      onChange={(e) => setProjectForm({ ...projectForm, locationData: { ...projectForm.locationData, latitude: e.target.value } })}
+                      placeholder="e.g. 13.0402"
+                      className="bg-white border border-[#E2E8F0] rounded-xl h-[42px] px-3 text-sm text-[#1A1F2A]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-semibold text-[#1A1F2A]">Longitude (Optional)</label>
+                    <input 
+                      type="text" 
+                      value={projectForm.locationData.longitude}
+                      onChange={(e) => setProjectForm({ ...projectForm, locationData: { ...projectForm.locationData, longitude: e.target.value } })}
+                      placeholder="e.g. 80.1712"
+                      className="bg-white border border-[#E2E8F0] rounded-xl h-[42px] px-3 text-sm text-[#1A1F2A]"
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Main Image Upload */}
               <div className="flex flex-col gap-2">
                 <label className="text-[14px] font-medium text-[#1A1F2A]">Upload Project Image*</label>
                 <div className="flex items-center gap-4">
@@ -1153,50 +1291,30 @@ export default function AdminPage() {
                       type="file" 
                       accept="image/*" 
                       className="hidden" 
-                      disabled={isUploading}
+                      disabled={isUploading["project_image"]}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = async () => {
-                            const result = reader.result;
-                            if (typeof result === "string") {
-                              setIsUploading(true);
-                              try {
-                                const response = await fetch("/api/upload", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ image: result }),
-                                });
-                                const data = await response.json();
-                                if (data.url) {
-                                  setProjectForm((prev) => ({ ...prev, imageSrc: data.url }));
-                                } else {
-                                  alert("Upload failed: " + (data.error || "Unknown error"));
-                                }
-                              } catch (err) {
-                                console.error(err);
-                                alert("Failed to upload image.");
-                              } finally {
-                                setIsUploading(false);
-                              }
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          try {
+                            const res = await uploadFile(file, "project_image");
+                            setProjectForm(prev => ({ ...prev, imageSrc: res.url }));
+                            triggerToast("Main image uploaded!");
+                          } catch (err) {
+                            triggerToast("Image upload failed.", "error");
+                          }
                         }
                       }}
                     />
                     <div className="flex flex-col items-center gap-1 text-[#64748B] group-hover:text-[#0B1117] transition-colors">
-                      {isUploading ? (
+                      {isUploading["project_image"] ? (
                         <>
                           <Icon icon="line-md:loading-twotone-loop" width="24" height="24" className="text-[#0B1117]" />
-                          <span className="text-[12px] font-medium text-[#0B1117]">Uploading to Cloudinary...</span>
+                          <span className="text-[12px] font-medium text-[#0B1117]">Uploading ({uploadProgress["project_image"] || 0}%)</span>
                         </>
                       ) : (
                         <>
                           <Icon icon="lucide:upload-cloud" width="24" height="24" />
                           <span className="text-[12px] font-medium">Click to upload image</span>
-                          <span className="text-[10px] text-[#8E9CAE]">PNG, JPG, JPEG, SVG, WebP, etc.</span>
                         </>
                       )}
                     </div>
@@ -1215,6 +1333,70 @@ export default function AdminPage() {
                           <Icon icon="lucide:trash-2" width="14" height="14" />
                         </button>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Brochure File Upload */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[14px] font-medium text-[#1A1F2A]">Upload Project Brochure (PDF / DOCX)</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex flex-col items-center justify-center flex-1 h-[90px] border-2 border-dashed border-[#CBD5E1] hover:border-[#0B1117] rounded-xl cursor-pointer bg-[#F8FAFC] transition-colors relative overflow-hidden group">
+                    <input 
+                      type="file" 
+                      accept=".pdf,.docx" 
+                      className="hidden" 
+                      disabled={isUploading["brochure"]}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const res = await uploadFile(file, "brochure");
+                            setProjectForm(prev => ({
+                              ...prev,
+                              brochure: {
+                                fileUrl: res.url,
+                                publicId: res.publicId,
+                                fileType: res.fileType,
+                              }
+                            }));
+                            triggerToast("Brochure uploaded!");
+                          } catch (err) {
+                            triggerToast("Brochure upload failed.", "error");
+                          }
+                        }
+                      }}
+                    />
+                    <div className="flex flex-col items-center gap-1 text-[#64748B] group-hover:text-[#0B1117] transition-colors">
+                      {isUploading["brochure"] ? (
+                        <>
+                          <Icon icon="line-md:loading-twotone-loop" width="20" height="20" className="text-[#0B1117]" />
+                          <span className="text-[12px] font-medium text-[#0B1117]">Uploading ({uploadProgress["brochure"] || 0}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon icon="lucide:file-text" width="20" height="20" />
+                          <span className="text-[12px] font-medium">Click to upload document</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  
+                  {projectForm.brochure?.fileUrl && (
+                    <div className="bg-[#F8FAFC] border border-[#E2E8F0] px-4 py-3 rounded-xl flex items-center justify-between gap-4 max-w-[200px] shrink-0 relative group">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <Icon icon="lucide:file-text" width="20" height="20" className="text-red-500 shrink-0" />
+                        <span className="text-[12px] text-[#0B1117] font-medium truncate">Brochure Loaded</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setProjectForm(prev => ({ ...prev, brochure: null }))}
+                        className="p-1.5 bg-red-50 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                        title="Remove brochure"
+                      >
+                        <Icon icon="lucide:trash-2" width="14" height="14" />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1255,9 +1437,10 @@ export default function AdminPage() {
                 <ProjectCard 
                   title={projectForm.title || "PROJECT NAME"}
                   bhk={projectForm.bhk}
-                  location={projectForm.location || "Location"}
+                  location={projectForm.locationData.address || "Location"}
                   status={projectForm.status}
                   imageSrc={projectForm.imageSrc}
+                  brochure={projectForm.brochure}
                 />
               </div>
             </div>
@@ -1309,6 +1492,68 @@ export default function AdminPage() {
                 />
               </div>
 
+              {/* Client Photo Upload */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[14px] font-medium text-[#1A1F2A]">Client Image (Optional)</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex flex-col items-center justify-center flex-1 h-[90px] border-2 border-dashed border-[#CBD5E1] hover:border-[#0B1117] rounded-xl cursor-pointer bg-[#F8FAFC] transition-colors relative overflow-hidden group">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      disabled={isUploading["testimonial_photo"]}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const res = await uploadFile(file, "testimonial_photo");
+                            setTestimonialForm(prev => ({
+                              ...prev,
+                              image: {
+                                imageUrl: res.url,
+                                publicId: res.publicId,
+                              }
+                            }));
+                            triggerToast("Client photo uploaded!");
+                          } catch (err) {
+                            triggerToast("Photo upload failed.", "error");
+                          }
+                        }
+                      }}
+                    />
+                    <div className="flex flex-col items-center gap-1 text-[#64748B] group-hover:text-[#0B1117] transition-colors">
+                      {isUploading["testimonial_photo"] ? (
+                        <>
+                          <Icon icon="line-md:loading-twotone-loop" width="20" height="20" className="text-[#0B1117]" />
+                          <span className="text-[12px] font-medium text-[#0B1117]">Uploading ({uploadProgress["testimonial_photo"] || 0}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon icon="lucide:user" width="20" height="20" />
+                          <span className="text-[12px] font-medium">Click to upload photo</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  
+                  {testimonialForm.image?.imageUrl && (
+                    <div className="w-[80px] h-[80px] rounded-full border border-[#E2E8F0] overflow-hidden shrink-0 relative group bg-neutral-100">
+                      <img src={testimonialForm.image.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                        <button 
+                          type="button"
+                          onClick={() => setTestimonialForm(prev => ({ ...prev, image: null }))}
+                          className="p-1.5 bg-red-600 rounded-lg text-white hover:bg-red-700 transition-colors"
+                          title="Remove image"
+                        >
+                          <Icon icon="lucide:trash-2" width="14" height="14" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Content */}
               <div className="flex flex-col gap-2">
                 <label className="text-[14px] font-medium text-[#1A1F2A]">Testimonial Message*</label>
@@ -1346,6 +1591,7 @@ export default function AdminPage() {
                   designation={testimonialForm.designation || "Designation"}
                   glowBig="bg-[#7DD3FC]"
                   glowSmall="bg-[#38BDF8]"
+                  image={testimonialForm.image}
                 />
               </div>
             </div>
@@ -1358,7 +1604,6 @@ export default function AdminPage() {
       <AnimatePresence>
         {selectedEnquiry && (
           <>
-            {/* Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
@@ -1366,7 +1611,6 @@ export default function AdminPage() {
               onClick={() => setSelectedEnquiry(null)}
               className="fixed inset-0 bg-black/50 z-[140] backdrop-blur-sm"
             />
-            {/* Drawer Container */}
             <motion.div 
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
@@ -1374,7 +1618,6 @@ export default function AdminPage() {
               transition={{ ease: "easeInOut", duration: 0.35 }}
               className="fixed top-0 bottom-0 right-0 w-full max-w-lg bg-white shadow-2xl z-[150] flex flex-col border-l border-[#E2E8F0]"
             >
-              {/* Header */}
               <div className="h-[88px] border-b border-[#E2E8F0] px-6 md:px-8 flex items-center justify-between shrink-0 bg-[#F8FAFC]">
                 <h3 className="font-serif text-[18px] uppercase tracking-wider">Enquiry Details</h3>
                 <button onClick={() => setSelectedEnquiry(null)} className="text-[#64748B] hover:text-[#0B1117] p-2 rounded-lg hover:bg-white border border-transparent hover:border-[#E2E8F0]">
@@ -1382,7 +1625,6 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* Body Content */}
               <div className="flex-grow p-6 md:p-8 overflow-y-auto flex flex-col gap-6">
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-medium text-[#8E9CAE] uppercase tracking-wider">Client Name</span>
@@ -1415,7 +1657,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="p-6 border-t border-[#E2E8F0] flex gap-3 bg-[#F8FAFC] shrink-0">
                 <button 
                   onClick={() => {
@@ -1503,7 +1744,6 @@ export default function AdminPage() {
               </div>
 
               <form onSubmit={handleSaveCredentials} className="flex flex-col gap-4">
-                {/* Username */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-medium text-[#1A1F2A]">Username</label>
                   <input 
@@ -1515,7 +1755,6 @@ export default function AdminPage() {
                   />
                 </div>
 
-                {/* Password */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-medium text-[#1A1F2A]">Password</label>
                   <input 

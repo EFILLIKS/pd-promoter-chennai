@@ -77,6 +77,7 @@ export const ReviewsSection = () => {
                 designation={review.designation}
                 glowBig={review.glowBig || glowPreset.big}
                 glowSmall={review.glowSmall || glowPreset.small}
+                image={review.image}
               />
             );
           })}
