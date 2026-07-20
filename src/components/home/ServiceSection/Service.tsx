@@ -33,7 +33,7 @@ export const ServicesSection = () => {
   const smoothEase = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
   return (
-    <section id="services" className="w-full px-[24px] md:px-[48px] lg:px-[64px] py-[80px] max-w-[1600px] mx-auto bg-[#ffffff]">
+    <section id="services" className="w-full px-[24px] md:px-[48px] lg:px-[64px] py-[80px] bg-[#ffffff]">
       
       {/* --- 1. HEADER ROW --- */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-[40px] gap-[24px]">

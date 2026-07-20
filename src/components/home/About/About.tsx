@@ -17,7 +17,7 @@ export const AboutSection = () => {
   return (
     // Max-w ensures the layout doesn't break on 4k monitors. 
     // py-32 and px-6 give it that breathing room seen in the wireframe.
-    <section id="about" ref={sectionRef} className="bg-white relative py-24 md:py-32 px-6 lg:px-12 max-w-[1600px] mx-auto w-full">
+    <section id="about" ref={sectionRef} className="bg-white relative py-24 md:py-32 px-6 lg:px-12 w-full">
       
       {/* ⚡ Premium Responsive Flex Layout */}
       <div className="flex flex-col lg:flex-row gap-0 lg:gap-0 sm:gap-10 justify-between items-stretch">

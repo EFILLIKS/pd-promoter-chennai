@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { normalizeGallery } from "@/utils/cloudinary";
 
 const supabase = createClient();
 
@@ -15,7 +16,7 @@ export interface Project {
   showOnHomepage: boolean;
   brochure?: { fileUrl: string; publicId: string; fileType: string } | null;
   locationData?: { address: string; place?: string; latitude?: string | number; longitude?: string | number } | null;
-  gallery?: { imageUrl: string; publicId: string }[] | null;
+  projectGallery?: { imageUrl: string; publicId: string }[] | null;
 }
 
 export interface Testimonial {
@@ -61,6 +62,8 @@ interface DataContextType {
   enquiries: Enquiry[];
   settings: CompanySettings;
   highlightedVideo: HighlightedVideo | null;
+  isNavigating: boolean;
+  setIsNavigating: (val: boolean) => void;
   addProject: (project: Omit<Project, "id">) => Promise<void>;
   editProject: (project: Project) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
@@ -243,6 +246,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [highlightedVideo, setHighlightedVideo] = useState<HighlightedVideo | null>({ videoUrl: "/assets/PD.mp4", publicId: "" });
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -256,10 +260,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!projErr && dbProjects && dbProjects.length > 0) {
           const normalized = dbProjects.map(p => {
             const locObj = parseLocation(p.location);
+            
+            // Normalize projectGallery from various formats
+            const galleryData = normalizeGallery(p.projectGallery || p.gallery);
+
+            let brochureData = p.brochure;
+            if (typeof brochureData === "string") {
+              try {
+                brochureData = JSON.parse(brochureData);
+              } catch (e) {
+                brochureData = null;
+              }
+            }
+
             return {
               ...p,
               location: locObj.place || locObj.address,
-              locationData: locObj
+              locationData: locObj,
+              projectGallery: galleryData,
+              brochure: brochureData && typeof brochureData === "object" ? brochureData : null,
             };
           });
           setProjects(normalized);
@@ -379,7 +398,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       imageSrc: project.imageSrc,
       showOnHomepage: project.showOnHomepage,
       brochure: project.brochure || null,
-      gallery: project.gallery || null,
+      projectGallery: project.projectGallery || null,
       location: project.locationData || { address: project.location || "", place: project.location || "", latitude: "", longitude: "" }
     };
 
@@ -404,9 +423,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await deleteCloudinaryAsset(oldProject.brochure.publicId, oldProject.brochure.fileType || "raw");
       }
       // 3. Check gallery items removal
-      if (oldProject.gallery) {
-        const currentGalleryIds = new Set((updated.gallery || []).map(g => g.publicId));
-        for (const item of oldProject.gallery) {
+      if (oldProject.projectGallery) {
+        const currentGalleryIds = new Set((updated.projectGallery || []).map(g => g.publicId));
+        for (const item of oldProject.projectGallery) {
           if (!currentGalleryIds.has(item.publicId)) {
             await deleteCloudinaryAsset(item.publicId, "image");
           }
@@ -429,7 +448,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       imageSrc: updated.imageSrc,
       showOnHomepage: updated.showOnHomepage,
       brochure: updated.brochure || null,
-      gallery: updated.gallery || null,
+      projectGallery: updated.projectGallery || null,
       location: updated.locationData || { address: updated.location || "", place: updated.location || "", latitude: "", longitude: "" }
     };
 
@@ -453,8 +472,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 3. Delete gallery
-      if (projectToDelete.gallery) {
-        for (const item of projectToDelete.gallery) {
+      if (projectToDelete.projectGallery) {
+        for (const item of projectToDelete.projectGallery) {
           await deleteCloudinaryAsset(item.publicId, "image");
         }
       }
@@ -614,6 +633,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         enquiries,
         settings,
         highlightedVideo,
+        isNavigating,
+        setIsNavigating,
         addProject,
         editProject,
         deleteProject,

@@ -2,6 +2,9 @@ import { motion } from "framer-motion";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useData } from "@/context/DataContext";
+import { useEffect } from "react";
 
 const MotionImage = motion.create(Image);
 
@@ -32,9 +35,28 @@ export const ProjectCard = ({
   brochure,
 }: ProjectCardProps) => {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
+  const router = useRouter();
+  const { setIsNavigating } = useData();
+  const targetUrl = `/project/${slug}`;
+
+  // Prefetch route on mount
+  useEffect(() => {
+    router.prefetch(targetUrl);
+  }, [router, targetUrl]);
 
   return (
-    <Link href={`/project/${slug}`} className="block w-full">
+    <Link 
+      href={targetUrl} 
+      className="block w-full"
+      onClick={(e) => {
+        e.preventDefault();
+        setIsNavigating(true);
+        router.push(targetUrl);
+      }}
+      onMouseEnter={() => {
+        router.prefetch(targetUrl);
+      }}
+    >
       <motion.div
         whileHover="hover"
         className={`relative overflow-hidden rounded-[24px] w-full aspect-[3/4] md:aspect-[4/3] cursor-pointer group ${className}`}

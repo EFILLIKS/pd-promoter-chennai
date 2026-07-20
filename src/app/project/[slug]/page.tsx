@@ -4,7 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { ProjectMap } from "@/components/ui/ProjectMap";
+import { ResetPageLoader } from "@/components/ui/ResetPageLoader";
+import { getOptimizedCloudinaryUrl, normalizeGallery } from "@/utils/cloudinary";
+import { ProjectGallery } from "@/components/projects/ProjectGallery";
+import { DynamicProjectMap } from "@/components/projects/DynamicProjectMap";
+import { unstable_noStore as noStore } from "next/cache";
 
 // Fallback projects in case Supabase is empty
 const DEFAULT_PROJECTS = [
@@ -77,6 +81,7 @@ const parseLocation = (location: any) => {
 };
 
 async function getProject(slug: string) {
+  noStore();
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -92,10 +97,24 @@ async function getProject(slug: string) {
         );
         if (found) {
           const locObj = parseLocation(found.location);
+          
+          const galleryData = normalizeGallery(found.projectGallery || found.gallery);
+
+          let brochureData = found.brochure;
+          if (typeof brochureData === "string") {
+            try {
+              brochureData = JSON.parse(brochureData);
+            } catch (e) {
+              brochureData = null;
+            }
+          }
+
           return {
             ...found,
             location: locObj.place || locObj.address,
-            locationData: locObj
+            locationData: locObj,
+            projectGallery: galleryData,
+            brochure: brochureData && typeof brochureData === "object" ? brochureData : null,
           };
         }
       }
@@ -112,7 +131,8 @@ async function getProject(slug: string) {
   if (found) {
     return {
       ...found,
-      locationData: found.locationData || { address: found.location, place: found.location, latitude: "", longitude: "" }
+      locationData: found.locationData || { address: found.location, place: found.location, latitude: "", longitude: "" },
+      projectGallery: []
     };
   }
   return null;
@@ -240,6 +260,7 @@ export default async function ProjectDetailPage({
 
   return (
     <div className="bg-[#FFFFFF] min-h-screen pt-[160px] pb-[80px] md:pb-[120px] text-[#1A1F2A]">
+      <ResetPageLoader />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
@@ -291,17 +312,12 @@ export default async function ProjectDetailPage({
           </div>
         </header>
 
-        {/* --- MAIN HERO IMAGE --- */}
-        <div className="w-full aspect-[16/9] rounded-[24px] overflow-hidden bg-neutral-100 shadow-sm mb-12 relative">
-          <Image 
-            src={project.imageSrc} 
-            alt={`Luxury ${project.bhk} Villa Project - ${project.title} in ${project.location} by PD Construction`} 
-            fill
-            priority={true}
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
-          />
-        </div>
+        {/* --- PROJECT GALLERY & LIGHTBOX --- */}
+        <ProjectGallery 
+          mainImage={project.imageSrc} 
+          gallery={project.projectGallery} 
+          projectTitle={project.title} 
+        />
 
         {/* --- PROJECT OVERVIEW & DETAILS --- */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 font-sans mb-16">
@@ -352,7 +368,7 @@ export default async function ProjectDetailPage({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
               {/* Map Column */}
               <div className="lg:col-span-8 h-[350px] md:h-[450px]">
-                <ProjectMap 
+                <DynamicProjectMap 
                   address={project.locationData.address}
                   latitude={project.locationData.latitude}
                   longitude={project.locationData.longitude}

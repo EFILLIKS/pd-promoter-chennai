@@ -63,6 +63,7 @@ export default function AdminPage() {
     showOnHomepage: boolean;
     brochure: { fileUrl: string; publicId: string; fileType: string } | null;
     locationData: { address: string; place: string; latitude: string | number; longitude: string | number };
+    projectGallery: { imageUrl: string; publicId: string }[];
   }>({
     title: "",
     bhk: "4 BHK",
@@ -72,6 +73,7 @@ export default function AdminPage() {
     showOnHomepage: true,
     brochure: null,
     locationData: { address: "", place: "", latitude: "", longitude: "" },
+    projectGallery: [],
   });
 
   // Uploading progress states
@@ -230,6 +232,7 @@ export default function AdminPage() {
       showOnHomepage: true,
       brochure: null,
       locationData: { address: "", place: "", latitude: "", longitude: "" },
+      projectGallery: [],
     });
     setProjectModal({ open: true, mode: "add" });
   };
@@ -249,6 +252,7 @@ export default function AdminPage() {
         latitude: p.locationData?.latitude || "",
         longitude: p.locationData?.longitude || "",
       },
+      projectGallery: p.projectGallery || (p as any).gallery || [],
     });
     setProjectModal({ open: true, mode: "edit", data: p });
   };
@@ -1400,6 +1404,177 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Project Gallery */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[14px] font-medium text-[#1A1F2A]">Project Gallery ({projectForm.projectGallery?.length || 0}/10)</label>
+                  <span className="text-[11px] text-[#64748B]">Max 10 JPG, PNG, or WEBP images</span>
+                </div>
+                
+                {/* Drag and Drop Zone */}
+                <label 
+                  className="flex flex-col items-center justify-center h-[90px] border-2 border-dashed border-[#CBD5E1] hover:border-[#0B1117] rounded-xl cursor-pointer bg-[#F8FAFC] transition-colors relative overflow-hidden group"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer.files || []);
+                    if (files.length === 0) return;
+                    
+                    const currentCount = projectForm.projectGallery?.length || 0;
+                    if (currentCount + files.length > 10) {
+                      triggerToast("Maximum 10 images allowed in gallery.", "error");
+                      return;
+                    }
+                    
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                        triggerToast(`File ${file.name} is not a valid format. Only JPG, PNG, and WEBP allowed.`, "error");
+                        continue;
+                      }
+                      const uploadKey = `gallery_${Date.now()}_${i}`;
+                      try {
+                        const res = await uploadFile(file, uploadKey);
+                        setProjectForm(prev => ({
+                          ...prev,
+                          projectGallery: [...(prev.projectGallery || []), { imageUrl: res.url, publicId: res.publicId }]
+                        }));
+                        triggerToast(`Uploaded ${file.name}`);
+                      } catch (err) {
+                        triggerToast(`Upload failed for ${file.name}`, "error");
+                      }
+                    }
+                  }}
+                >
+                  <input 
+                    type="file" 
+                    multiple 
+                    accept="image/jpeg,image/png,image/webp" 
+                    className="hidden" 
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      const currentCount = projectForm.projectGallery?.length || 0;
+                      if (currentCount + files.length > 10) {
+                        triggerToast("Maximum 10 images allowed in gallery.", "error");
+                        return;
+                      }
+                      
+                      for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                          triggerToast(`File ${file.name} is not a valid format. Only JPG, PNG, and WEBP allowed.`, "error");
+                          continue;
+                        }
+                        const uploadKey = `gallery_${Date.now()}_${i}`;
+                        try {
+                          const res = await uploadFile(file, uploadKey);
+                          setProjectForm(prev => ({
+                            ...prev,
+                            projectGallery: [...(prev.projectGallery || []), { imageUrl: res.url, publicId: res.publicId }]
+                          }));
+                          triggerToast(`Uploaded ${file.name}`);
+                        } catch (err) {
+                          triggerToast(`Upload failed for ${file.name}`, "error");
+                        }
+                      }
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-1 text-[#64748B] group-hover:text-[#0B1117] transition-colors">
+                    <Icon icon="lucide:image" width="20" height="20" />
+                    <span className="text-[12px] font-medium">Click or Drag & Drop to upload gallery images</span>
+                  </div>
+                </label>
+
+                {/* Gallery Thumbnail Grid */}
+                {projectForm.projectGallery && projectForm.projectGallery.length > 0 && (
+                  <div className="grid grid-cols-5 gap-3 mt-2">
+                    {projectForm.projectGallery.map((item, index) => (
+                      <div 
+                        key={item.publicId || index}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", index.toString());
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                          if (!isNaN(fromIndex) && fromIndex !== index) {
+                            const updated = [...projectForm.projectGallery];
+                            const [moved] = updated.splice(fromIndex, 1);
+                            updated.splice(index, 0, moved);
+                            setProjectForm(prev => ({ ...prev, projectGallery: updated }));
+                          }
+                        }}
+                        className="group aspect-square rounded-xl border border-[#E2E8F0] overflow-hidden relative bg-neutral-100 cursor-move"
+                      >
+                        <img src={item.imageUrl} alt={`Gallery ${index}`} className="w-full h-full object-cover" />
+                        
+                        {/* Overlay Controls */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                          {/* Move Left */}
+                          {index > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...projectForm.projectGallery];
+                                const [moved] = updated.splice(index, 1);
+                                updated.splice(index - 1, 0, moved);
+                                setProjectForm(prev => ({ ...prev, projectGallery: updated }));
+                              }}
+                              className="p-1 bg-white/20 hover:bg-white/40 text-white rounded transition-colors cursor-pointer"
+                              title="Move Left"
+                            >
+                                <Icon icon="lucide:arrow-left" width="12" height="12" />
+                            </button>
+                          )}
+                          
+                          {/* Delete */}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const updated = projectForm.projectGallery.filter((_, idx) => idx !== index);
+                              setProjectForm(prev => ({ ...prev, projectGallery: updated }));
+                              triggerToast("Gallery image removed.");
+                              try {
+                                await fetch("/api/upload", {
+                                  method: "DELETE",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ publicId: item.publicId, resourceType: "image" }),
+                                });
+                              } catch (err) {
+                                console.error("Cloudinary delete error:", err);
+                              }
+                            }}
+                            className="p-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors cursor-pointer"
+                            title="Delete"
+                          >
+                            <Icon icon="lucide:trash-2" width="12" height="12" />
+                          </button>
+
+                          {/* Move Right */}
+                          {index < projectForm.projectGallery.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...projectForm.projectGallery];
+                                const [moved] = updated.splice(index, 1);
+                                updated.splice(index + 1, 0, moved);
+                                setProjectForm(prev => ({ ...prev, projectGallery: updated }));
+                              }}
+                              className="p-1 bg-white/20 hover:bg-white/40 text-white rounded transition-colors cursor-pointer"
+                              title="Move Right"
+                            >
+                              <Icon icon="lucide:arrow-right" width="12" height="12" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Homepage visibility */}

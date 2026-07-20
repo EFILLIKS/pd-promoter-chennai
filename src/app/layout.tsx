@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { DataProvider } from "@/context/DataContext";
 import { LenisProvider } from "@/components/layout/LenisProvider";
+import { PageLoader } from "@/components/ui/PageLoader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,17 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "./",
   },
+  icons: {
+    icon: [
+      { url: "/assets/Logoblue.png", media: "(prefers-color-scheme: light)", type: "image/png" },
+      { url: "/assets/logowhite.png", media: "(prefers-color-scheme: dark)", type: "image/png" },
+    ],
+    apple: [
+      { url: "/assets/Logoblue.png", media: "(prefers-color-scheme: light)", type: "image/png" },
+      { url: "/assets/logowhite.png", media: "(prefers-color-scheme: dark)", type: "image/png" },
+    ],
+  },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "PD Construction | Premium Villas & Property Development in Chennai",
     description: "PD Construction develops premium villas and residential properties in Chennai with modern architecture and exceptional craftsmanship.",
@@ -119,6 +131,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#030303] text-[#f5f5f7]">
         <DataProvider>
+          <PageLoader />
           <LenisProvider>
             <Header />
             <main className="flex-grow flex flex-col justify-start">
