@@ -398,7 +398,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       imageSrc: project.imageSrc,
       showOnHomepage: project.showOnHomepage,
       brochure: project.brochure || null,
-      projectGallery: project.projectGallery || null,
+      gallery: project.projectGallery || null,
       location: project.locationData || { address: project.location || "", place: project.location || "", latitude: "", longitude: "" }
     };
 
@@ -448,7 +448,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       imageSrc: updated.imageSrc,
       showOnHomepage: updated.showOnHomepage,
       brochure: updated.brochure || null,
-      projectGallery: updated.projectGallery || null,
+      gallery: updated.projectGallery || null,
       location: updated.locationData || { address: updated.location || "", place: updated.location || "", latitude: "", longitude: "" }
     };
 
