@@ -61,6 +61,7 @@ export default function AdminPage() {
     status: "Available" | "Booked" | "Delivered";
     imageSrc: string;
     showOnHomepage: boolean;
+    projectOverview: string;
     brochure: { fileUrl: string; publicId: string; fileType: string } | null;
     locationData: { address: string; place: string; latitude: string | number; longitude: string | number };
     projectGallery: { imageUrl: string; publicId: string }[];
@@ -71,6 +72,7 @@ export default function AdminPage() {
     status: "Available",
     imageSrc: "/assets/placeholder-house.png",
     showOnHomepage: true,
+    projectOverview: "",
     brochure: null,
     locationData: { address: "", place: "", latitude: "", longitude: "" },
     projectGallery: [],
@@ -230,6 +232,7 @@ export default function AdminPage() {
       status: "Available",
       imageSrc: "/assets/placeholder-house.png",
       showOnHomepage: true,
+      projectOverview: "",
       brochure: null,
       locationData: { address: "", place: "", latitude: "", longitude: "" },
       projectGallery: [],
@@ -245,6 +248,7 @@ export default function AdminPage() {
       status: p.status,
       imageSrc: p.imageSrc,
       showOnHomepage: p.showOnHomepage,
+      projectOverview: p.projectOverview || "",
       brochure: p.brochure || null,
       locationData: {
         address: p.locationData?.address || p.location || "",
@@ -264,8 +268,14 @@ export default function AdminPage() {
       return;
     }
 
+    if (!projectForm.projectOverview.trim()) {
+      triggerToast("Please provide a Project Overview.", "error");
+      return;
+    }
+
     const projectPayload = {
       ...projectForm,
+      projectOverview: projectForm.projectOverview.trim(),
       location: projectForm.locationData.place,
     };
 
@@ -1233,6 +1243,24 @@ export default function AdminPage() {
                   <option value="Booked">Booked</option>
                   <option value="Delivered">Delivered</option>
                 </select>
+              </div>
+
+              {/* Project Overview */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[14px] font-medium text-[#1A1F2A]">Project Overview*</label>
+                  <span className="text-[11px] text-[#64748B] font-medium">
+                    {projectForm.projectOverview.length} characters
+                  </span>
+                </div>
+                <textarea
+                  rows={5}
+                  value={projectForm.projectOverview}
+                  onChange={(e) => setProjectForm({ ...projectForm, projectOverview: e.target.value })}
+                  placeholder="Describe the project... Mention the concept, architecture, amenities, quality, location benefits, construction standards, lifestyle, etc."
+                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] focus:bg-white focus:border-[#0B1117] rounded-xl p-4 text-sm text-[#1A1F2A] outline-none transition-all resize-y leading-relaxed placeholder:text-[#94A3B8]"
+                  required
+                />
               </div>
 
               {/* Location Fields */}

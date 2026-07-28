@@ -323,12 +323,25 @@ export default async function ProjectDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 font-sans mb-16">
           <div className="lg:col-span-8 flex flex-col gap-6">
             <h2 className="text-2xl font-serif text-[#0B1117] uppercase tracking-wide">Project Overview</h2>
-            <p className="text-[#4A5568] text-base md:text-lg leading-relaxed">
-              Explore {project.title}, located in the heart of {project.location}. Designed to offer a seamless blend of luxury, privacy, and contemporary functionality, this {project.bhk} development sets a new benchmark for residential properties in the region.
-            </p>
-            <p className="text-[#4A5568] text-base md:text-lg leading-relaxed">
-              PD Construction ensures every masterpiece is engineered with premium-grade construction materials, elegant custom finishes, and thoughtful architectural layouts to enhance natural light and airflow for modern living.
-            </p>
+            {project.projectOverview ? (
+              project.projectOverview
+                .split("\n\n")
+                .filter((para: string) => para.trim().length > 0)
+                .map((paragraph: string, idx: number) => (
+                  <p key={idx} className="text-[#4A5568] text-base md:text-lg leading-relaxed">
+                    {paragraph.trim()}
+                  </p>
+                ))
+            ) : (
+              <>
+                <p className="text-[#4A5568] text-base md:text-lg leading-relaxed">
+                  Explore {project.title}, located in the heart of {project.location}. Designed to offer a seamless blend of luxury, privacy, and contemporary functionality, this {project.bhk} development sets a new benchmark for residential properties in the region.
+                </p>
+                <p className="text-[#4A5568] text-base md:text-lg leading-relaxed">
+                  PD Construction ensures every masterpiece is engineered with premium-grade construction materials, elegant custom finishes, and thoughtful architectural layouts to enhance natural light and airflow for modern living.
+                </p>
+              </>
+            )}
           </div>
           
           <div className="lg:col-span-4 bg-[#F8FAFC] border border-[#E2E8F0] p-8 rounded-[24px] flex flex-col justify-between h-fit gap-6 shadow-sm">

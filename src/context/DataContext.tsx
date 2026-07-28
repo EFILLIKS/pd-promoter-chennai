@@ -14,6 +14,7 @@ export interface Project {
   status: "Available" | "Booked" | "Delivered";
   imageSrc: string;
   showOnHomepage: boolean;
+  projectOverview?: string;
   brochure?: { fileUrl: string; publicId: string; fileType: string } | null;
   locationData?: { address: string; place?: string; latitude?: string | number; longitude?: string | number } | null;
   projectGallery?: { imageUrl: string; publicId: string }[] | null;
@@ -397,13 +398,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: project.status,
       imageSrc: project.imageSrc,
       showOnHomepage: project.showOnHomepage,
+      projectOverview: project.projectOverview || null,
       brochure: project.brochure || null,
       gallery: project.projectGallery || null,
       location: project.locationData || { address: project.location || "", place: project.location || "", latitude: "", longitude: "" }
     };
 
     try {
-      await supabase.from("projects").insert([dbPayload]);
+      const { error } = await supabase.from("projects").insert([dbPayload]);
+      if (error && error.code === "PGRST204") {
+        // Fallback if projectOverview column hasn't been added to Supabase schema yet
+        const { projectOverview, ...legacyPayload } = dbPayload;
+        await supabase.from("projects").insert([legacyPayload]);
+      }
     } catch (err) {
       console.error("Supabase insert project error:", err);
     }
@@ -447,13 +454,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: updated.status,
       imageSrc: updated.imageSrc,
       showOnHomepage: updated.showOnHomepage,
+      projectOverview: updated.projectOverview || null,
       brochure: updated.brochure || null,
       gallery: updated.projectGallery || null,
       location: updated.locationData || { address: updated.location || "", place: updated.location || "", latitude: "", longitude: "" }
     };
 
     try {
-      await supabase.from("projects").update(dbPayload).eq("id", updated.id);
+      const { error } = await supabase.from("projects").update(dbPayload).eq("id", updated.id);
+      if (error && error.code === "PGRST204") {
+        // Fallback if projectOverview column hasn't been added to Supabase schema yet
+        const { projectOverview, ...legacyPayload } = dbPayload;
+        await supabase.from("projects").update(legacyPayload).eq("id", updated.id);
+      }
     } catch (err) {
       console.error("Supabase update project error:", err);
     }
