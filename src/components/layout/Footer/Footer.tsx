@@ -194,7 +194,15 @@ export const Footer = () => {
             Copyright@2026
           </p>
           <p className="text-[#C6CDDB]/50 text-[14px]">
-            Crafted by Efilliks
+            Crafted by{" "}
+            <a
+              href="https://efilliks.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline hover:text-white transition-colors"
+            >
+              Efilliks
+            </a>
           </p>
         </div>
 
