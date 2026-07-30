@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   title: "Our Works & Selected Portfolio",
   description: "Browse selected architectural masterpieces by PD Construction. Premium villas, residential developments, and luxury homes built in Chennai.",
   alternates: {
-    canonical: "https://pdconstruction.in/projects",
+    canonical: "https://www.pdpromoters.com/projects",
   },
   openGraph: {
     title: "Our Works & Selected Portfolio | PD Construction",
     description: "Browse selected architectural masterpieces by PD Construction. Premium villas, residential developments, and luxury homes built in Chennai.",
-    url: "https://pdconstruction.in/projects",
+    url: "https://www.pdpromoters.com/projects",
   },
 };
 

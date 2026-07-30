@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pdconstruction.in"),
+  metadataBase: new URL("https://www.pdpromoters.com"),
   title: {
     default: "PD Construction | Premium Villas & Property Development in Chennai",
     template: "%s | PD Construction",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "PD Construction | Premium Villas & Property Development in Chennai",
     description: "PD Construction develops premium villas and residential properties in Chennai with modern architecture and exceptional craftsmanship.",
-    url: "https://pdconstruction.in",
+    url: "https://www.pdpromoters.com",
     siteName: "PD Construction",
     images: [
       {
@@ -74,10 +74,10 @@ export default function RootLayout({
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://pdconstruction.in/#organization",
+        "@id": "https://www.pdpromoters.com/#organization",
         "name": "PD Construction",
-        "url": "https://pdconstruction.in",
-        "logo": "https://pdconstruction.in/assets/Logoblue.png",
+        "url": "https://www.pdpromoters.com",
+        "logo": "https://www.pdpromoters.com/assets/Logoblue.png",
         "contactPoint": {
           "@type": "ContactPoint",
           "telephone": "+91-88255-28284",
@@ -89,10 +89,10 @@ export default function RootLayout({
       },
       {
         "@type": ["LocalBusiness", "RealEstateAgent"],
-        "@id": "https://pdconstruction.in/#localbusiness",
+        "@id": "https://www.pdpromoters.com/#localbusiness",
         "name": "PD Construction",
-        "image": "https://pdconstruction.in/assets/Property1.png",
-        "url": "https://pdconstruction.in",
+        "image": "https://www.pdpromoters.com/assets/Property1.png",
+        "url": "https://www.pdpromoters.com",
         "telephone": "+918825528284",
         "email": "pdconstruction91@gmail.com",
         "address": {

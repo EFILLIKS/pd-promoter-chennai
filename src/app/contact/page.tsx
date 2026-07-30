@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   title: "Contact Us | Get in Touch for Premium Villas",
   description: "Connect with our construction specialists. Get inquiries, site visits, and consultation details for premium properties in Chennai.",
   alternates: {
-    canonical: "https://pdconstruction.in/contact",
+    canonical: "https://www.pdpromoters.com/contact",
   },
   openGraph: {
     title: "Contact Us | Get in Touch for Premium Villas | PD Construction",
     description: "Connect with our construction specialists. Get inquiries, site visits, and consultation details for premium properties in Chennai.",
-    url: "https://pdconstruction.in/contact",
+    url: "https://www.pdpromoters.com/contact",
   },
 };
 

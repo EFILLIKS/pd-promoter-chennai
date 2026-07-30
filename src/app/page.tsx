@@ -14,12 +14,12 @@ export const metadata: Metadata = {
   title: "PD Construction | Premium Villas & Property Development in Chennai",
   description: "PD Construction develops premium villas and residential properties in Chennai with modern architecture and exceptional craftsmanship. Top property developers in Chennai.",
   alternates: {
-    canonical: "https://pdconstruction.in",
+    canonical: "https://www.pdpromoters.com",
   },
   openGraph: {
     title: "PD Construction | Premium Villas & Property Development in Chennai",
     description: "PD Construction develops premium villas and residential properties in Chennai with modern architecture and exceptional craftsmanship. Top property developers in Chennai.",
-    url: "https://pdconstruction.in",
+    url: "https://www.pdpromoters.com",
   },
 };
 

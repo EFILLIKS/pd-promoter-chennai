@@ -155,7 +155,7 @@ export async function generateMetadata({
 
   const title = `${project.title} | ${project.bhk} Villa in ${project.location} | PD Construction`;
   const description = `Explore ${project.title}, a premium ${project.bhk} villa project located in ${project.location}, developed by PD Construction.`;
-  const canonicalUrl = `https://pdconstruction.in/project/${slug}`;
+  const canonicalUrl = `https://www.pdpromoters.com/project/${slug}`;
 
   return {
     title,
@@ -208,7 +208,7 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const baseUrl = "https://pdconstruction.in";
+  const baseUrl = "https://www.pdpromoters.com";
   const canonicalUrl = `${baseUrl}/project/${slug}`;
 
   // Breadcrumb schema
