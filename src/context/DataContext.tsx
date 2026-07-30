@@ -50,6 +50,8 @@ export interface CompanySettings {
   instagram?: string;
   twitter?: string;
   facebook?: string;
+  youtube?: string;
+  linkedin?: string;
 }
 
 export interface HighlightedVideo {
@@ -167,6 +169,8 @@ const DEFAULT_SETTINGS: CompanySettings = {
   instagram: "#",
   twitter: "#",
   facebook: "#",
+  youtube: "#",
+  linkedin: "#",
 };
 
 // Helper to delete a Cloudinary asset

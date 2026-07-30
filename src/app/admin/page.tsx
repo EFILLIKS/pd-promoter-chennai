@@ -103,6 +103,8 @@ export default function AdminPage() {
     instagram: settings.instagram || "",
     twitter: settings.twitter || "",
     facebook: settings.facebook || "",
+    youtube: settings.youtube || "",
+    linkedin: settings.linkedin || "",
   });
 
   // Sync settings when loaded
@@ -115,6 +117,8 @@ export default function AdminPage() {
       instagram: settings.instagram || "",
       twitter: settings.twitter || "",
       facebook: settings.facebook || "",
+      youtube: settings.youtube || "",
+      linkedin: settings.linkedin || "",
     });
     setCredForm({
       username: settings.adminUsername,
@@ -1075,7 +1079,7 @@ export default function AdminPage() {
                 </div>
 
                 <h3 className="font-serif text-[18px] uppercase tracking-wide border-b border-[#F1F5F9] pb-4 mt-4">Social Accounts</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-[#1A1F2A]">Instagram</label>
                     <input 
@@ -1100,6 +1104,24 @@ export default function AdminPage() {
                       type="text" 
                       value={settingsForm.facebook}
                       onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">YouTube</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.youtube}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, youtube: e.target.value })}
+                      className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[#1A1F2A]">LinkedIn</label>
+                    <input 
+                      type="text" 
+                      value={settingsForm.linkedin}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, linkedin: e.target.value })}
                       className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl h-[46px] px-4 text-sm text-[#1A1F2A] outline-none focus:border-[#0B1117]"
                     />
                   </div>

@@ -121,12 +121,13 @@ export const Footer = () => {
             </p>
             
             {/* Social Icons */}
-            <div className="flex items-center gap-[20px] mt-[8px]">
+            <div className="flex items-center gap-[16px] md:gap-[20px] mt-[8px] flex-wrap">
               <a 
                 href={settings.twitter || "#"} 
                 target={settings.twitter && settings.twitter !== "#" ? "_blank" : undefined}
                 rel="noopener noreferrer"
                 className="text-[#C6CDDB]/60 hover:text-white transition-colors"
+                title="Twitter"
               >
                 <Icon icon="ri:twitter-x-line" width="20" height="20" />
               </a>
@@ -135,6 +136,7 @@ export const Footer = () => {
                 target={settings.facebook && settings.facebook !== "#" ? "_blank" : undefined}
                 rel="noopener noreferrer"
                 className="text-[#C6CDDB]/60 hover:text-white transition-colors"
+                title="Facebook"
               >
                 <Icon icon="mdi:facebook" width="22" height="22" />
               </a>
@@ -143,8 +145,27 @@ export const Footer = () => {
                 target={settings.instagram && settings.instagram !== "#" ? "_blank" : undefined}
                 rel="noopener noreferrer"
                 className="text-[#C6CDDB]/60 hover:text-white transition-colors"
+                title="Instagram"
               >
                 <Icon icon="mdi:instagram" width="22" height="22" />
+              </a>
+              <a 
+                href={settings.youtube || "#"} 
+                target={settings.youtube && settings.youtube !== "#" ? "_blank" : undefined}
+                rel="noopener noreferrer"
+                className="text-[#C6CDDB]/60 hover:text-white transition-colors"
+                title="YouTube"
+              >
+                <Icon icon="mdi:youtube" width="22" height="22" />
+              </a>
+              <a 
+                href={settings.linkedin || "#"} 
+                target={settings.linkedin && settings.linkedin !== "#" ? "_blank" : undefined}
+                rel="noopener noreferrer"
+                className="text-[#C6CDDB]/60 hover:text-white transition-colors"
+                title="LinkedIn"
+              >
+                <Icon icon="mdi:linkedin" width="22" height="22" />
               </a>
             </div>
           </div>
